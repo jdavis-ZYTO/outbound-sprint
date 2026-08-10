@@ -404,7 +404,7 @@ const CONFIG = {
   trackGoals: { letters:400, calls:1200, convos:300, wins:40 },
 
   // Conversations only. Everything else scores flat.
-  listMultipliers: { "Unsubscribed":2, "Lead":2, "Current customer":1 },
+  listMultipliers: { "Inactive customer":2, "Lead":2, "Current customer":1 },
 
   dailyCallCap: 40,
 
@@ -751,7 +751,7 @@ function setStatus(text, warn){
 
 function demoRows(){
   const names=CONFIG.roster;
-  const lists=["Current customer","Unsubscribed","Lead"];
+  const lists=["Current customer","Inactive customer","Lead"];
   const out=[];
   const now=Date.now();
   for(let d=6;d>=0;d--){

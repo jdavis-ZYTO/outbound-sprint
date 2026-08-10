@@ -89,9 +89,18 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
 .add:active{transform:scale(.96);background:var(--manila);color:var(--ink)}
 .card.calls .add:active{background:var(--dial)}
 .seg{display:flex;gap:6px;margin-top:10px}
-.segb{flex:1;padding:9px 2px;font-family:var(--data);font-size:10px;letter-spacing:.08em;
-  text-transform:uppercase;color:var(--dim);border:1px solid var(--ink-3)}
-.segb[aria-pressed="true"]{background:var(--ink-3);color:var(--paper);border-color:var(--manila)}
+.seghint{font-family:var(--data);font-size:10px;letter-spacing:.1em;color:var(--dim);
+  text-transform:uppercase;margin-top:12px}
+.seghint.why{text-transform:none;letter-spacing:0;font-family:var(--body);font-size:11px;
+  line-height:1.35;margin-top:8px}
+.segb{flex:1;padding:9px 2px;border:1px solid var(--ink-3);display:flex;
+  flex-direction:column;align-items:center;gap:3px}
+.segb b{font-family:var(--display);font-weight:500;font-size:13px;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--dim)}
+.segb i{font-family:var(--data);font-size:9px;letter-spacing:.06em;color:var(--ink-3);font-style:normal}
+.segb[aria-pressed="true"]{background:var(--ink-3);border-color:var(--manila)}
+.segb[aria-pressed="true"] b{color:var(--paper)}
+.segb[aria-pressed="true"] i{color:var(--manila)}
 
 .outcomebtn{padding:18px;border:2px solid var(--postal);color:var(--postal);
   font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.08em;
@@ -182,6 +191,10 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
 .arow .abtn:active{background:var(--ink-3);color:var(--paper)}
 .arow .abtn.go{border-color:var(--dial);color:var(--dial)}
 .arow .sm{font-family:var(--data);font-size:10px;color:var(--dim);display:block;margin-top:2px}
+.undo{width:100%;padding:13px;border:1px solid var(--ink-3);color:var(--dim);
+  font-family:var(--data);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-top:4px}
+.undo:active{background:var(--ink-3);color:var(--paper)}
+.undo:disabled{opacity:.35}
 .newpin{background:var(--postal);color:var(--paper);padding:12px;margin-top:10px;
   font-family:var(--data);font-size:14px;letter-spacing:.06em}
 .gate h2{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:26px;
@@ -340,7 +353,11 @@ const CONFIG = {
     { action:"Annual upgrade",  pts:30 },
     { action:"System purchase", pts:60 }
   ],
-  segments: ["Current customer","Unsubscribed","Lead"],
+  segments: [
+    { name:"Current customer",  short:"Current",  mult:1 },
+    { name:"Inactive customer", short:"Inactive", mult:2 },
+    { name:"Lead",              short:"Lead",     mult:2 }
+  ],
 
   // On the board and in the team totals, but off the ranked ladder and
   // not eligible for prizes.
@@ -356,7 +373,7 @@ const CONFIG = {
 const $ = id=>document.getElementById(id);
 let ME = null;                       // {id, display_name}
 let STATE = { people:[], mine:[], shelf:[], roster:[] };
-let SEGMENT = CONFIG.segments[0];
+let SEGMENT = CONFIG.segments[0].name;
 let QUEUE = [];                      // entries written while offline
 let PICKED = null;
 let PENDING = null;   // name chosen, PIN not yet entered
@@ -411,7 +428,7 @@ function demoInit(){
       const t=now-d*864e5;
       const push=(action,qty,ver)=>DEMO.entries.push({
         id:"e"+Math.random(), participant_id:p.id, action, qty,
-        list_segment:CONFIG.segments[Math.floor(Math.random()*3)],
+        list_segment:CONFIG.segments[Math.floor(Math.random()*3)].name,
         verified:!!ver, created_at:new Date(t+Math.random()*7*36e5).toISOString()
       });
       push("Call attempt", Math.round(8+Math.random()*22*zeal));
@@ -427,7 +444,7 @@ function demoInit(){
 
 /* Mirrors the standings view so demo and live behave identically. */
 function demoStandings(){
-  const CAP=40, MULT={"Current customer":1,"Unsubscribed":2,"Lead":2};
+  const CAP=40, MULT=Object.fromEntries(CONFIG.segments.map(g=>[g.name,g.mult]));
   const PTS={}; CONFIG.activities.concat(CONFIG.outcomes).forEach(a=>PTS[a.action]=a.pts);
   const WINS=new Set(CONFIG.outcomes.map(o=>o.action));
   const today=new Date().toDateString();
@@ -566,9 +583,13 @@ function renderLog(){
           <button class="add" data-act="${a.action}" data-n="1">+1</button>
           <button class="add" data-act="${a.action}" data-n="5">+5</button>
         </div>
-        ${a.action==="Conversation" ? `<div class="seg">${
-          CONFIG.segments.map(s=>`<button class="segb" data-seg="${s}"
-            aria-pressed="${s===SEGMENT}">${s}</button>`).join("")}</div>` : ""}
+        ${a.action==="Conversation" ? `
+          <div class="seghint">Who did you talk to?</div>
+          <div class="seg">${CONFIG.segments.map(g=>`
+            <button class="segb" data-seg="${g.name}" aria-pressed="${g.name===SEGMENT}">
+              <b>${g.short}</b><i>${g.mult>1?"×"+g.mult+" points":"normal"}</i>
+            </button>`).join("")}</div>
+          <div class="seghint why">Inactive customers and leads are harder calls, so those conversations score double.</div>` : ""}
       </div>`).join("")
     + `<button class="outcomebtn" id="openOutcome">Log an outcome</button>`;
 
@@ -655,6 +676,7 @@ function renderMe(){
           : "Nothing left to claim"}</span>
       </div>
     </div>
+    <button class="undo" id="undoBtn">Undo my last entry</button>
     <div class="list">${
       STATE.mine.length ? STATE.mine.map(e=>{
         const isWin=CONFIG.outcomes.some(o=>o.action===e.action);
@@ -665,6 +687,7 @@ function renderMe(){
         </div>`;
       }).join("") : `<div class="empty">Nothing logged yet.</div>`}
     </div>`;
+  $("undoBtn").onclick=undoLast;
 }
 
 function renderShelf(){
@@ -741,25 +764,46 @@ async function verifyPin(name, pin){
   return res || null;   // the database returns null when the PIN is wrong
 }
 
+async function undoLast(){
+  if(isDemo()){
+    const mine=DEMO.entries.filter(e=>e.participant_id===ME.id)
+      .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    if(!mine.length){ toast("Nothing to undo"); return; }
+    DEMO.entries=DEMO.entries.filter(e=>e.id!==mine[0].id);
+    toast(`Removed ${mine[0].action}`);
+    await refresh(); return;
+  }
+  try{
+    const what = await sb("rpc/undo_last", {
+      method:"POST", body: JSON.stringify({ p_participant_id: ME.id })
+    });
+    if(!what){ toast("Nothing to undo — over 15 minutes old"); return; }
+    toast(`Removed ${what}`);
+    await refresh();
+  }catch(err){ toast("Couldn't undo just now"); }
+}
+
 /* ============================================================
    ADMIN
    Admin PIN lives in memory only — never written to the device.
    Every action is re-checked inside the database.
    ============================================================ */
 let ADMIN_PIN = null;
-let ADMIN = { pins:[], pending:[] };
+let ADMIN = { pins:[], pending:[], recent:[] };
 
 async function adminCall(fn, args){
   return sb("rpc/"+fn, { method:"POST", body: JSON.stringify(args) });
 }
 
 async function adminLoad(){
-  const [pins, pending] = await Promise.all([
+  const [pins, pending, recent] = await Promise.all([
     adminCall("admin_list_pins", { p_admin_pin: ADMIN_PIN }),
-    adminCall("admin_pending",   { p_admin_pin: ADMIN_PIN })
+    adminCall("admin_pending",   { p_admin_pin: ADMIN_PIN }),
+    adminCall("admin_recent",    { p_admin_pin: ADMIN_PIN })
   ]);
   ADMIN.pins = pins || [];
   ADMIN.pending = pending || [];
+  ADMIN.recent = recent || [];
 }
 
 function renderAdminLock(msg){
@@ -815,6 +859,19 @@ function renderAdmin(){
       <div class="hint">Check the account against Salesforce, then confirm</div>
       ${pending}
     </div>
+    <div class="acard" style="border-left-color:var(--dial)">
+      <h4>Recent entries</h4>
+      <div class="hint">Fix a wrong number, or remove it entirely</div>
+      ${ADMIN.recent.length ? ADMIN.recent.map(e=>`
+        <div class="arow">
+          <div style="min-width:0">
+            <div class="an">${e.who}</div>
+            <span class="sm">${e.action}${e.qty>1?" ×"+e.qty:""}${e.account_name?" · "+e.account_name:""} · ${new Date(e.logged_at).toLocaleString([], {month:"numeric",day:"numeric",hour:"numeric",minute:"2-digit"})}${e.verified?" · verified":""}</span>
+          </div>
+          <button class="abtn" data-qty="${e.entry_id}" data-cur="${e.qty}" style="margin-left:auto">Fix qty</button>
+          <button class="abtn" data-del="${e.entry_id}">Remove</button>
+        </div>`).join("") : `<div class="sm" style="padding:8px 0">No entries yet.</div>`}
+    </div>
     <div class="acard" style="border-left-color:var(--manila)">
       <h4>PINs</h4>
       <div class="hint">Reset generates a new one — write it down before leaving this screen</div>
@@ -842,7 +899,29 @@ function renderAdmin(){
     }catch(err){ b.disabled=false; b.textContent="Reset"; toast("Couldn't reset"); }
   });
 
-  $("adminLock").onclick=()=>{ ADMIN_PIN=null; ADMIN={pins:[],pending:[]}; renderAdminLock(); };
+  $("vAdmin").querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
+    b.disabled=true; b.textContent="…";
+    try{
+      await adminCall("admin_delete_entry", { p_admin_pin: ADMIN_PIN, p_entry_id: b.dataset.del });
+      toast("Removed");
+      await adminLoad(); renderAdmin(); await refresh();
+    }catch(err){ b.disabled=false; b.textContent="Remove"; toast("Couldn't remove"); }
+  });
+
+  $("vAdmin").querySelectorAll("[data-qty]").forEach(b=>b.onclick=async()=>{
+    const v = prompt("Correct quantity?", b.dataset.cur);
+    if(v===null) return;
+    const n = parseInt(v,10);
+    if(isNaN(n) || n<1){ toast("Needs to be 1 or more"); return; }
+    b.disabled=true; b.textContent="…";
+    try{
+      await adminCall("admin_set_qty", { p_admin_pin: ADMIN_PIN, p_entry_id: b.dataset.qty, p_qty: n });
+      toast("Corrected");
+      await adminLoad(); renderAdmin(); await refresh();
+    }catch(err){ b.disabled=false; b.textContent="Fix qty"; toast("Couldn't change that"); }
+  });
+
+  $("adminLock").onclick=()=>{ ADMIN_PIN=null; ADMIN={pins:[],pending:[],recent:[]}; renderAdminLock(); };
 }
 
 async function gate(){
