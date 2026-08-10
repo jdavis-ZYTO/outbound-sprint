@@ -266,23 +266,29 @@ body{
 .shelf{flex:1 1 auto;display:grid;gap:calc(var(--pad)*.55);min-height:0;
   grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr}
 .item{
-  background:var(--ink-2);padding:calc(var(--pad)*.7);
+  background:var(--ink-2);padding:calc(var(--pad)*.6);
   box-shadow:var(--shadow);border-radius:3px;
-  display:flex;flex-direction:column;justify-content:space-between;
+  /* Text left, square photo right. The photo column is sized by the tile's
+     own height via aspect-ratio, so it stays square at any screen size. */
+  display:grid;grid-template-columns:1fr auto;gap:calc(var(--pad)*.5);
+  align-items:stretch;
   position:relative;overflow:hidden;border-left:3px solid var(--ink-3);
 }
+.item .txt{display:flex;flex-direction:column;justify-content:center;
+  gap:.35em;min-width:0}
 .item.reach{border-left-color:var(--dial)}
 /* The name is what people are chasing, so it leads. */
 .item .nm2{
   font-family:var(--display);font-weight:500;text-transform:uppercase;
-  letter-spacing:.03em;line-height:1.1;flex:0 0 auto;
-  font-size:clamp(12px,1.2vw,26px);color:var(--paper);
+  letter-spacing:.03em;line-height:1.1;
+  font-size:clamp(13px,1.3vw,28px);color:var(--paper);
 }
-.item .shot{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;
-  background:#fff;border-radius:2px;margin-bottom:.5em;overflow:hidden}
-.item .shot img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.item .shot{align-self:stretch;aspect-ratio:1/1;max-width:42%;
+  background:#fff;border-radius:2px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center}
+.item .shot img{width:100%;height:100%;object-fit:cover;display:block}
 .item.gone .shot{filter:grayscale(1)}
-.item .itfoot{display:flex;align-items:baseline;gap:.4em;margin-top:auto}
+.item .itfoot{display:flex;align-items:baseline;gap:.4em}
 .item .cost{
   font-family:var(--display);font-weight:700;color:var(--manila);
   font-size:clamp(18px,1.9vw,40px);line-height:1;
@@ -849,6 +855,35 @@ function nextShot(img){
   img.src = rest[0];
 }
 
+
+/* The exact filenames in the repo. Guessing at extensions turned out to be
+   fragile — .jpg and .jpeg were both in play — so this is the literal list.
+   Anything not here falls back to a slug guess, then to text. */
+const PHOTOS = {
+  "Chirp RPM Big":                    "chirp-rpm-big.jpeg",
+  "Chirp RPM":                        "chirp-rpm.jpeg",
+  "Bose Soundbar":                    "bose-soundbar.jpeg",
+  "Soundcore Bluetooth Speaker":      "soundcore-bluetooth-speaker.jpeg",
+  "Chirp Wheel+ Deep Tissue 2-Pack":  "chirp-wheel-deep-tissue-2-pack.jpeg",
+  "Cinemark $50 Gift Card":           "cinemark-50-gift-card.jpg",
+  "Pickleball Bundle":                "pickleball-bundle.jpeg",
+  "Infinity Telescoping Lamp":        "infinity-telescoping-lamp.jpeg",
+  "Ghost Energy 18-Pack":             "ghost-energy-18-pack.jpeg",
+  "Head Lamps":                       "head-lamps.jpeg",
+  "Cascade Camp Chair":               "cascade-camp-chair.jpeg",
+  "Monster Ultra 24-Pack":            "monster-ultra-24-pack.jpeg",
+  "Red Bull Sugar Free 24-Pack":      "red-bull-sugar-free-24-pack.jpg",
+  "Cafe Rio $25":                     "cafe-rio-25.jpeg",
+  "R&R BBQ $25":                      "r-r-bbq-25.jpeg",
+  "Coldstone $25":                    "coldstone-25.jpeg",
+  "Chubby's $25":                     "chubbys-25.jpeg",
+  "Golf sleeve (3 balls)":            "golf-sleeve-3-balls.jpeg"
+};
+
+function photoFor(name){
+  return "images/" + (PHOTOS[name] || prizeSlug(name) + ".jpeg");
+}
+
 function prizeSlug(name){
   return name.toLowerCase()
     .replace(/[$+']/g,"")
@@ -864,15 +899,15 @@ function renderShelf(people, shelf){
     const reach = !gone && best >= g.cost;
     return `<div class="item ${gone?"gone":""} ${reach?"reach":""}">
       ${gone?'<div class="soldout">Claimed</div>':''}
-      <div class="shot"><img src="images/${prizeSlug(g.name)}.jpg" alt=""
-        data-tries="images/${prizeSlug(g.name)}.jpeg|images/${prizeSlug(g.name)}.png|images/${prizeSlug(g.name)}.JPG"
-        onerror="nextShot(this)"></div>
-      <div class="nm2">${g.name}</div>
-      <div class="itfoot">
-        <span class="cost">${g.cost}</span>
-        <span class="costlbl">tokens</span>
-        <span class="left">${gone ? "" : (g.total>1 ? g.left+" left" : (reach?"claimable":""))}</span>
+      <div class="txt">
+        <div class="nm2">${g.name}</div>
+        <div class="itfoot">
+          <span class="cost">${g.cost}</span>
+          <span class="costlbl">tokens</span>
+          <span class="left">${gone ? "" : (g.total>1 ? g.left+" left" : (reach?"claimable":""))}</span>
+        </div>
       </div>
+      <div class="shot"><img src="${photoFor(g.name)}" alt="" onerror="nextShot(this)"></div>
     </div>`;
   }).join("");
 }
