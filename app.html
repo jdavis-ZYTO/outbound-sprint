@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12202B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Outbound Sprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;500;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#12202B; --ink-2:#1B2E3C; --ink-3:#25404F;
+  --manila:#E8D5A9; --paper:#F5EFE3; --postal:#D8412F;
+  --dial:#4FB8A8; --dim:#7D95A3;
+  --display:'Oswald',Impact,sans-serif;
+  --body:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --data:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{background:var(--ink)}
+body{
+  background:var(--ink);color:var(--paper);font-family:var(--body);
+  min-height:100vh;min-height:100dvh;
+  background-image:repeating-linear-gradient(0deg,transparent 0 39px,rgba(232,213,169,.03) 39px 40px);
+}
+.shell{max-width:560px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;
+  padding-bottom:env(safe-area-inset-bottom)}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+
+/* ---------- header ---------- */
+.hdr{display:flex;align-items:center;gap:12px;padding:14px 16px calc(14px);
+  border-bottom:2px solid var(--manila);background:var(--ink-2);
+  padding-top:calc(14px + env(safe-area-inset-top))}
+.hdr .mark{font-family:var(--display);font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;font-size:19px;color:var(--manila);line-height:1}
+.hdr .sub{font-family:var(--data);font-size:10px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+.idblock{min-width:0}
+.idblock .mark{color:var(--paper)}
+.idblock .mark.named{color:var(--manila)}
+
+/* PIN step */
+.pinwrap{max-width:340px}
+.pinwrap .backb{font-family:var(--data);font-size:11px;letter-spacing:.14em;color:var(--dim);
+  text-transform:uppercase;text-decoration:underline;margin-bottom:18px;display:block}
+.pinwrap .whoname{font-family:var(--display);font-weight:700;text-transform:uppercase;
+  font-size:30px;letter-spacing:.03em;color:var(--manila);line-height:1.05}
+input[type=tel]{width:100%;padding:16px;background:var(--ink-2);border:1px solid var(--ink-3);
+  color:var(--paper);font-family:var(--data);font-size:30px;letter-spacing:.5em;text-align:center;
+  margin-top:16px}
+input[type=tel]:focus{outline:2px solid var(--manila);outline-offset:-2px}
+.pinwrap .go{width:100%;margin-top:12px;padding:16px;background:var(--manila);color:var(--ink);
+  font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.07em;text-transform:uppercase}
+.pinwrap .go:disabled{opacity:.35}
+.pinerr{color:var(--postal);font-size:14px;margin-top:12px;min-height:1.2em}
+.chip{margin-left:auto;text-align:right}
+.chip .r{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;color:var(--paper)}
+.chip .l{font-family:var(--data);font-size:9px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;border-bottom:1px solid var(--ink-3);background:var(--ink-2);position:sticky;top:0;z-index:5}
+.tab{flex:1;padding:13px 4px;font-family:var(--data);font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dim);border-bottom:3px solid transparent}
+.tab[aria-selected="true"]{color:var(--manila);border-bottom-color:var(--manila)}
+
+main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
+.view{display:none;flex-direction:column;gap:12px}
+.view.on{display:flex}
+
+/* ---------- log cards ---------- */
+.card{background:var(--ink-2);border-left:4px solid var(--ink-3);padding:14px 16px}
+.card.letters{border-left-color:var(--manila)}
+.card.calls{border-left-color:var(--dial)}
+.card.convos{border-left-color:#8FD0C4}
+.card .top{display:flex;align-items:center;gap:12px}
+.card .nm{font-family:var(--display);font-weight:500;text-transform:uppercase;
+  letter-spacing:.04em;font-size:19px;line-height:1.1}
+.card .pv{font-family:var(--data);font-size:10px;color:var(--dim);letter-spacing:.1em}
+.card .cnt{margin-left:auto;text-align:right}
+.card .cnt b{font-family:var(--display);font-weight:700;font-size:34px;line-height:1;
+  display:block;font-variant-numeric:tabular-nums}
+.card .cnt span{font-family:var(--data);font-size:9px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+.adders{display:flex;gap:8px;margin-top:12px}
+.add{flex:1;padding:14px 0;background:var(--ink-3);font-family:var(--display);
+  font-weight:500;font-size:17px;letter-spacing:.06em;text-transform:uppercase;
+  transition:transform .08s ease,background .15s ease}
+.add:active{transform:scale(.96);background:var(--manila);color:var(--ink)}
+.card.calls .add:active{background:var(--dial)}
+.seg{display:flex;gap:6px;margin-top:10px}
+.segb{flex:1;padding:9px 2px;font-family:var(--data);font-size:10px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--dim);border:1px solid var(--ink-3)}
+.segb[aria-pressed="true"]{background:var(--ink-3);color:var(--paper);border-color:var(--manila)}
+
+.outcomebtn{padding:18px;border:2px solid var(--postal);color:var(--postal);
+  font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.08em;
+  text-transform:uppercase;text-align:center}
+.outcomebtn:active{background:var(--postal);color:var(--ink)}
+
+/* ---------- board ---------- */
+.brow{display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;
+  background:var(--ink-2);padding:11px 13px;border-left:3px solid transparent}
+.brow.me{border-left-color:var(--manila);background:#22323E}
+.brow .rk{font-family:var(--display);font-weight:700;font-size:20px;color:var(--dim);text-align:center}
+.brow.pace{border-top:2px dashed var(--ink-3);border-left-color:var(--manila);margin-top:6px}
+.brow.pace .rk{color:var(--manila);font-size:15px}
+.brow .pacelbl{font-family:var(--data);font-size:9px;letter-spacing:.08em;
+  color:var(--manila);text-transform:uppercase;margin-top:2px}
+.brow.p1 .rk{color:var(--postal)}
+.brow.p2 .rk{color:var(--manila)}
+.brow.p3 .rk{color:var(--dial)}
+.brow .n{font-family:var(--display);font-weight:500;text-transform:uppercase;font-size:16px;
+  letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .mini{display:flex;gap:5px;margin-top:4px}
+.brow .mini i{height:4px;flex:1;background:#0E1A23;display:block;position:relative;overflow:hidden}
+.brow .mini i b{position:absolute;inset:0 auto 0 0;display:block}
+.brow .p{text-align:right}
+.brow .p b{font-family:var(--display);font-weight:700;font-size:24px;line-height:1;
+  display:block;font-variant-numeric:tabular-nums}
+.brow .p span{font-family:var(--data);font-size:9px;color:var(--postal);letter-spacing:.06em}
+
+/* ---------- me ---------- */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--ink-2);padding:13px;text-align:center}
+.stat b{font-family:var(--display);font-weight:700;font-size:29px;line-height:1;display:block;
+  font-variant-numeric:tabular-nums}
+.stat span{font-family:var(--data);font-size:9px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+.trk{background:var(--ink-2);padding:12px 14px}
+.trkrow{display:grid;grid-template-columns:64px 1fr 36px;gap:10px;align-items:center;margin-bottom:9px}
+.trkrow:last-child{margin-bottom:0}
+.trkrow .l{font-family:var(--data);font-size:10px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+.trkrow .bar{height:8px;background:#0E1A23;overflow:hidden}
+.trkrow .bar b{display:block;height:100%;width:0;transition:width .6s cubic-bezier(.2,.8,.25,1)}
+.trkrow .v{font-family:var(--data);font-size:12px;text-align:right}
+.f-letters{background:var(--manila)} .f-calls{background:var(--dial)}
+.f-convos{background:#8FD0C4} .f-wins{background:var(--postal)}
+
+.list{background:var(--ink-2)}
+.li{display:flex;gap:10px;align-items:baseline;padding:10px 14px;border-bottom:1px solid var(--ink)}
+.li:last-child{border-bottom:none}
+.li .t{font-family:var(--data);font-size:10px;color:var(--dim)}
+.li .a{margin-left:auto;font-family:var(--data);font-size:11px;color:var(--manila);white-space:nowrap}
+.li .a.pend{color:var(--postal)}
+
+/* ---------- shelf ---------- */
+.shelf{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pz{background:var(--ink-2);border:1px solid var(--ink-3);padding:13px;position:relative;
+  display:flex;flex-direction:column;min-height:98px}
+.pz b{font-family:var(--display);font-weight:700;font-size:26px;color:var(--manila);line-height:1}
+.pz .u{font-family:var(--data);font-size:9px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+.pz .n{margin-top:auto;font-size:13px;font-weight:600;line-height:1.25}
+.pz.reach{border-color:var(--dial)}
+.pz.reach .u{color:var(--dial)}
+.pz.gone{opacity:.4}
+.pz .so{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-13deg);
+  border:2px solid var(--postal);color:var(--postal);font-family:var(--display);font-weight:700;
+  letter-spacing:.1em;font-size:14px;padding:2px 8px;white-space:nowrap}
+
+/* ---------- name gate ---------- */
+.gate{position:fixed;inset:0;background:var(--ink);z-index:50;display:flex;flex-direction:column;
+  padding:24px;overflow:auto}
+/* A class selector outranks the browser's [hidden] rule, so display:flex above
+   would keep this on screen forever without this line. */
+.gate[hidden]{display:none}
+.pinwrap[hidden]{display:none}
+.tab[hidden]{display:none}
+
+/* Admin */
+.acard{background:var(--ink-2);padding:14px;border-left:3px solid var(--postal)}
+.acard h4{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:16px;
+  letter-spacing:.04em;color:var(--manila);margin-bottom:4px}
+.acard .hint{font-family:var(--data);font-size:10px;color:var(--dim);letter-spacing:.08em;
+  text-transform:uppercase;margin-bottom:10px}
+.arow{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--ink)}
+.arow:last-child{border-bottom:none}
+.arow .an{font-family:var(--display);font-weight:500;text-transform:uppercase;font-size:15px;
+  letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow .apin{font-family:var(--data);font-size:17px;color:var(--manila);letter-spacing:.16em;margin-left:auto}
+.arow .abtn{padding:8px 12px;border:1px solid var(--ink-3);font-family:var(--data);font-size:10px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.arow .abtn:active{background:var(--ink-3);color:var(--paper)}
+.arow .abtn.go{border-color:var(--dial);color:var(--dial)}
+.arow .sm{font-family:var(--data);font-size:10px;color:var(--dim);display:block;margin-top:2px}
+.newpin{background:var(--postal);color:var(--paper);padding:12px;margin-top:10px;
+  font-family:var(--data);font-size:14px;letter-spacing:.06em}
+.gate h2{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:26px;
+  letter-spacing:.04em;color:var(--manila);margin-bottom:6px}
+.gate p{color:var(--dim);font-size:14px;margin-bottom:20px}
+.names{display:flex;flex-direction:column;gap:8px}
+.nb{padding:16px;background:var(--ink-2);text-align:left;font-family:var(--display);
+  font-weight:500;text-transform:uppercase;letter-spacing:.04em;font-size:18px;
+  border-left:3px solid var(--ink-3)}
+.nb:active{border-left-color:var(--manila);background:var(--ink-3)}
+
+/* ---------- modal ---------- */
+.modal{position:fixed;inset:0;background:rgba(9,16,21,.86);z-index:40;display:none;
+  align-items:flex-end;justify-content:center}
+.modal.on{display:flex}
+.sheet{background:var(--ink-2);width:100%;max-width:560px;padding:20px;
+  padding-bottom:calc(20px + env(safe-area-inset-bottom));
+  border-top:3px solid var(--postal);max-height:90dvh;overflow:auto}
+.sheet h3{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:21px;
+  letter-spacing:.04em;color:var(--manila);margin-bottom:14px}
+.ob{display:flex;align-items:center;gap:12px;padding:13px;background:var(--ink);margin-bottom:7px;
+  border-left:3px solid var(--ink-3);width:100%;text-align:left}
+.ob[aria-pressed="true"]{border-left-color:var(--postal);background:var(--ink-3)}
+.ob .on2{font-family:var(--display);font-weight:500;text-transform:uppercase;font-size:16px;letter-spacing:.03em}
+.ob .op{margin-left:auto;font-family:var(--data);font-size:12px;color:var(--manila)}
+label.fl{display:block;font-family:var(--data);font-size:10px;letter-spacing:.16em;
+  color:var(--dim);text-transform:uppercase;margin:14px 0 6px}
+input[type=text]{width:100%;padding:14px;background:var(--ink);border:1px solid var(--ink-3);
+  color:var(--paper);font:inherit;font-size:16px}
+input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
+.acts{display:flex;gap:8px;margin-top:18px}
+.acts button{flex:1;padding:15px;font-family:var(--display);font-weight:700;font-size:16px;
+  letter-spacing:.07em;text-transform:uppercase}
+.acts .go{background:var(--postal);color:var(--ink)}
+.acts .go:disabled{opacity:.4}
+.acts .no{border:1px solid var(--ink-3);color:var(--dim)}
+.err{color:var(--postal);font-size:13px;margin-top:10px;min-height:1em}
+
+/* ---------- toast + banner ---------- */
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,140%);
+  background:var(--manila);color:var(--ink);padding:13px 20px;font-family:var(--display);
+  font-weight:500;text-transform:uppercase;letter-spacing:.05em;font-size:15px;z-index:60;
+  transition:transform .3s cubic-bezier(.2,.9,.3,1);max-width:90vw;text-align:center}
+.toast.on{transform:translate(-50%,0)}
+.toast.win{background:var(--postal);color:var(--paper)}
+.banner{background:var(--postal);color:var(--paper);padding:9px 16px;font-family:var(--data);
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;text-align:center;display:none}
+.banner.on{display:block}
+.foot{padding:18px 16px 26px;text-align:center}
+.foot button{font-family:var(--data);font-size:11px;letter-spacing:.14em;
+  color:var(--dim);text-transform:uppercase;text-decoration:underline}
+.empty{color:var(--dim);font-size:14px;text-align:center;padding:26px 16px;background:var(--ink-2)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="banner" id="banner"></div>
+
+<div class="shell">
+  <header class="hdr">
+    <div class="idblock">
+      <div class="sub" id="daylbl">—</div>
+      <div class="mark" id="whoami">Outbound Sprint</div>
+    </div>
+    <div class="chip">
+      <div class="r" id="myRank">—</div>
+      <div class="l" id="myRankLbl">Your rank</div>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true"  data-v="vLog">Log</button>
+    <button class="tab" role="tab" aria-selected="false" data-v="vBoard">Board</button>
+    <button class="tab" role="tab" aria-selected="false" data-v="vMe">Me</button>
+    <button class="tab" role="tab" aria-selected="false" data-v="vShelf">Prizes</button>
+    <button class="tab" role="tab" aria-selected="false" data-v="vAdmin" id="tabAdmin" hidden>Admin</button>
+  </div>
+
+  <main>
+    <section class="view on" id="vLog"></section>
+    <section class="view" id="vBoard"></section>
+    <section class="view" id="vMe"></section>
+    <section class="view" id="vShelf"></section>
+    <section class="view" id="vAdmin"></section>
+  </main>
+
+  <div class="foot"><button id="notme">Not you? Switch name</button></div>
+</div>
+
+<div class="gate" id="gate" hidden>
+  <div id="gateNames">
+    <h2>Who are you?</h2>
+    <p>Pick your name. This device will remember it — you won't sign in again.</p>
+    <div class="names" id="nameList"></div>
+  </div>
+  <div id="gatePin" class="pinwrap" hidden>
+    <button class="backb" id="pinBack">← Not you? Pick again</button>
+    <div class="whoname" id="pinName"></div>
+    <p style="margin-top:8px">Enter your 4-digit PIN.</p>
+    <input type="tel" id="pinInput" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••">
+    <button class="go" id="pinGo" disabled>Enter</button>
+    <div class="pinerr" id="pinErr"></div>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="sheet">
+    <h3>Log an outcome</h3>
+    <div id="outcomeOpts"></div>
+    <label class="fl" for="acct">Account or contact name — required</label>
+    <input type="text" id="acct" autocomplete="off" placeholder="Who was it?">
+    <div class="err" id="mErr"></div>
+    <div class="acts">
+      <button class="no" id="mCancel">Cancel</button>
+      <button class="go" id="mSave" disabled>Log it</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const CONFIG = {
+  title: "Outbound Sprint",
+
+  // "demo" runs on fake in-memory data so you can try the whole app
+  // before Supabase exists. Switch to "supabase" to go live.
+  source: "supabase",
+
+  supabase: {
+    url:"https://bikbqntyireqwqaofmeq.supabase.co",
+    anonKey:"sb_publishable_aWggUCj1M0wuU28900VBBA_SgonFeH6"
+  },
+
+  start:"2026-08-17",
+  end:"2026-08-28",
+
+  refreshSeconds: 20,
+
+  // Mirrors the actions table. Kept here only for labels and ordering —
+  // the database is what actually scores.
+  activities: [
+    { action:"Call attempt",   track:"calls",   pts:1, label:"Calls" },
+    { action:"Letter shipped", track:"letters", pts:3, label:"Letters" },
+    { action:"Conversation",   track:"convos",  pts:5, label:"Conversations" }
+  ],
+  outcomes: [
+    { action:"Google review",   pts:10 },
+    { action:"Referral",        pts:15 },
+    { action:"Renewal",         pts:20 },
+    { action:"Annual upgrade",  pts:30 },
+    { action:"System purchase", pts:60 }
+  ],
+  segments: ["Current customer","Unsubscribed","Lead"],
+
+  // On the board and in the team totals, but off the ranked ladder and
+  // not eligible for prizes.
+  // Require a PIN at name selection. Set false to drop back to open sign-in.
+  requirePin: true,
+
+  pacesetters: ["Josh D"]
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const $ = id=>document.getElementById(id);
+let ME = null;                       // {id, display_name}
+let STATE = { people:[], mine:[], shelf:[], roster:[] };
+let SEGMENT = CONFIG.segments[0];
+let QUEUE = [];                      // entries written while offline
+let PICKED = null;
+let PENDING = null;   // name chosen, PIN not yet entered
+
+/* Storage is best-effort. Private browsing and sandboxed frames both
+   block it, so every call falls back to memory rather than throwing. */
+const MEM = {};
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return MEM[k] ?? null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ MEM[k]=v; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){ delete MEM[k]; } }
+};
+
+const isDemo = ()=> CONFIG.source!=="supabase" || !CONFIG.supabase.url;
+
+/* ============================================================
+   DATA ACCESS
+   ============================================================ */
+async function sb(path, opts={}){
+  const key = CONFIG.supabase.anonKey;
+  const headers = { apikey: key, "Content-Type":"application/json", ...(opts.headers||{}) };
+  // Legacy anon keys are JWTs and expect a Bearer header too. The newer
+  // sb_publishable_ keys don't — sending one can be rejected.
+  if(key.startsWith("eyJ")) headers.Authorization = "Bearer "+key;
+  const res = await fetch(`${CONFIG.supabase.url}/rest/v1/${path}`, { ...opts, headers });
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  return res.status===204 ? null : res.json();
+}
+
+/* ---- demo backend: same shape, no network ---- */
+const DEMO = { participants:[], entries:[], prizes:[] };
+function demoInit(){
+  ["Tanner R","Sam W","Samantha C","Jen M","Max M","Morgan R","Courtney H",
+   "Jason E","Joseph C","Stu D","Michael P","Aaron R","Kirsten S","Josh D"]
+    .forEach((n,i)=>DEMO.participants.push({
+      id:"p"+i, display_name:n, competing: !CONFIG.pacesetters.includes(n)
+    }));
+  DEMO.prizes = [
+    {id:"z1",name:"Bluetooth speaker",token_cost:250,claimed_by:null},
+    {id:"z2",name:"Camping chair",token_cost:250,claimed_by:null},
+    {id:"z3",name:"$50 gift card",token_cost:250,claimed_by:"p3"},
+    {id:"z4",name:"Percussion massager",token_cost:120,claimed_by:null},
+    {id:"z5",name:"$25 gift card",token_cost:120,claimed_by:null},
+    {id:"z6",name:"Golf balls",token_cost:40,claimed_by:null},
+    {id:"z7",name:"Monster 4-pack",token_cost:40,claimed_by:"p1"},
+    {id:"z8",name:"$10 gift card",token_cost:40,claimed_by:null}
+  ];
+  const now=Date.now();
+  DEMO.participants.forEach((p,i)=>{
+    const zeal=.4+((i*29)%100)/100;
+    for(let d=5;d>=0;d--){
+      const t=now-d*864e5;
+      const push=(action,qty,ver)=>DEMO.entries.push({
+        id:"e"+Math.random(), participant_id:p.id, action, qty,
+        list_segment:CONFIG.segments[Math.floor(Math.random()*3)],
+        verified:!!ver, created_at:new Date(t+Math.random()*7*36e5).toISOString()
+      });
+      push("Call attempt", Math.round(8+Math.random()*22*zeal));
+      push("Letter shipped", Math.round(Math.random()*5*zeal));
+      const c=Math.round(Math.random()*5*zeal); if(c) push("Conversation",c);
+      if(Math.random()<.2*zeal) push("Google review",1,Math.random()<.7);
+      if(Math.random()<.14*zeal) push("Referral",1,Math.random()<.6);
+      if(Math.random()<.09*zeal) push("Annual upgrade",1,Math.random()<.5);
+      if(Math.random()<.05*zeal) push("System purchase",1,Math.random()<.4);
+    }
+  });
+}
+
+/* Mirrors the standings view so demo and live behave identically. */
+function demoStandings(){
+  const CAP=40, MULT={"Current customer":1,"Unsubscribed":2,"Lead":2};
+  const PTS={}; CONFIG.activities.concat(CONFIG.outcomes).forEach(a=>PTS[a.action]=a.pts);
+  const WINS=new Set(CONFIG.outcomes.map(o=>o.action));
+  const today=new Date().toDateString();
+  const out=DEMO.participants.map(p=>{
+    const mine=DEMO.entries.filter(e=>e.participant_id===p.id);
+    const callsByDay={};
+    mine.filter(e=>e.action==="Call attempt").forEach(e=>{
+      const k=new Date(e.created_at).toDateString();
+      callsByDay[k]=(callsByDay[k]||0)+e.qty;
+    });
+    const calls=Object.values(callsByDay).reduce((s,v)=>s+Math.min(v,CAP),0);
+    const callsToday=Math.min(callsByDay[today]||0,CAP);
+    const q=a=>mine.filter(e=>e.action===a).reduce((s,e)=>s+e.qty,0);
+    const letters=q("Letter shipped"), convos=q("Conversation");
+    const winRows=mine.filter(e=>WINS.has(e.action));
+    const wins=winRows.reduce((s,e)=>s+e.qty,0);
+    const wins_verified=winRows.filter(e=>e.verified).reduce((s,e)=>s+e.qty,0);
+    const convoPts=mine.filter(e=>e.action==="Conversation")
+      .reduce((s,e)=>s+e.qty*PTS["Conversation"]*(MULT[e.list_segment]??1),0);
+    const winPts=winRows.filter(e=>e.verified).reduce((s,e)=>s+e.qty*PTS[e.action],0);
+    const pending=winRows.filter(e=>!e.verified).reduce((s,e)=>s+e.qty*PTS[e.action],0);
+    const todayPts=mine.filter(e=>new Date(e.created_at).toDateString()===today
+        && e.action!=="Call attempt" && (!WINS.has(e.action)||e.verified))
+      .reduce((s,e)=>s+e.qty*PTS[e.action]*(e.action==="Conversation"?(MULT[e.list_segment]??1):1),0);
+    return {
+      id:p.id, display_name:p.display_name, competing:p.competing!==false,
+      letters, calls, convos, wins, wins_verified,
+      points: Math.round(letters*PTS["Letter shipped"] + convoPts + winPts + calls*PTS["Call attempt"]),
+      pending_points: pending,
+      points_today: Math.round(todayPts + callsToday*PTS["Call attempt"]),
+      tokens_spent:0
+    };
+  });
+  out.sort((a,b)=>b.points-a.points || b.wins_verified-a.wins_verified
+                 || a.display_name.localeCompare(b.display_name));
+  let r=0;
+  out.forEach(p=>{
+    p.rank = p.competing ? ++r : null;
+    p.tokens = p.competing ? Math.max(0,p.points-p.tokens_spent) : 0;
+  });
+  return out;
+}
+
+async function fetchRoster(){
+  if(isDemo()) return DEMO.participants;
+  return sb("participants?select=id,display_name,is_admin&active=eq.true&order=display_name.asc");
+}
+async function fetchAll(){
+  if(isDemo()){
+    STATE.people = demoStandings();
+    STATE.shelf  = DEMO.prizes.map(z=>({name:z.name,cost:z.token_cost,sold:!!z.claimed_by}));
+    STATE.mine   = ME ? DEMO.entries.filter(e=>e.participant_id===ME.id)
+                          .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,12) : [];
+    return;
+  }
+  const [standings, prizes] = await Promise.all([
+    sb("standings?select=*&order=rank.asc"),
+    sb("prizes?select=*&order=token_cost.desc,sort_order.asc")
+  ]);
+  STATE.people = standings;
+  STATE.shelf  = prizes.map(z=>({name:z.name,cost:z.token_cost,sold:!!z.claimed_by}));
+  STATE.mine   = ME ? await sb(`entries?select=*&participant_id=eq.${ME.id}&order=created_at.desc&limit=12`) : [];
+}
+
+async function writeEntry(row){
+  if(isDemo()){
+    DEMO.entries.push({ id:"e"+Math.random(), created_at:new Date().toISOString(),
+                        qty:1, verified:false, ...row });
+    return;
+  }
+  await sb("entries", { method:"POST", body:JSON.stringify(row) });
+}
+
+/* ============================================================
+   LOGGING
+   ============================================================ */
+function me(){ return STATE.people.find(p=>p.id===ME?.id) || null; }
+
+async function log(action, qty, extra={}){
+  const row = { participant_id:ME.id, action, qty, ...extra };
+  bump(action, qty);                          // optimistic
+  try{
+    await writeEntry(row);
+    await refresh();
+  }catch(err){
+    QUEUE.push(row);
+    store.set("queue", JSON.stringify(QUEUE));
+    showBanner(`Saved on this device — ${QUEUE.length} waiting to sync`);
+  }
+}
+
+/* Optimistic local increment so the number moves the instant they tap. */
+function bump(action, qty){
+  const p = me(); if(!p) return;
+  const a = CONFIG.activities.find(x=>x.action===action);
+  if(a){ p[a.track] += qty; p.points += a.pts*qty; }
+  renderLog();
+}
+
+async function flushQueue(){
+  if(!QUEUE.length) return;
+  const pending=[...QUEUE];
+  for(const row of pending){
+    try{ await writeEntry(row); QUEUE.shift(); }
+    catch(e){ break; }
+  }
+  store.set("queue", JSON.stringify(QUEUE));
+  if(!QUEUE.length){ hideBanner(); toast("All entries synced"); await refresh(); }
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function todayCount(track){
+  const p=me(); if(!p) return 0;
+  const t=new Date().toDateString();
+  const acts=CONFIG.activities.find(a=>a.track===track);
+  return STATE.mine.filter(e=>e.action===acts.action
+      && new Date(e.created_at).toDateString()===t)
+    .reduce((s,e)=>s+(e.qty||1),0);
+}
+
+function renderLog(){
+  const p=me();
+  $("vLog").innerHTML =
+    CONFIG.activities.map(a=>`
+      <div class="card ${a.track}">
+        <div class="top">
+          <div>
+            <div class="nm">${a.label}</div>
+            <div class="pv">${a.pts} ${a.pts===1?"point":"points"} each</div>
+          </div>
+          <div class="cnt"><b>${p?p[a.track]:0}</b><span>Total</span></div>
+        </div>
+        <div class="adders">
+          <button class="add" data-act="${a.action}" data-n="1">+1</button>
+          <button class="add" data-act="${a.action}" data-n="5">+5</button>
+        </div>
+        ${a.action==="Conversation" ? `<div class="seg">${
+          CONFIG.segments.map(s=>`<button class="segb" data-seg="${s}"
+            aria-pressed="${s===SEGMENT}">${s}</button>`).join("")}</div>` : ""}
+      </div>`).join("")
+    + `<button class="outcomebtn" id="openOutcome">Log an outcome</button>`;
+
+  $("vLog").querySelectorAll(".add").forEach(b=>b.onclick=()=>{
+    const act=b.dataset.act, n=+b.dataset.n;
+    const extra = act==="Conversation" ? {list_segment:SEGMENT} : {};
+    if(navigator.vibrate) navigator.vibrate(12);
+    toast(`+${n} ${act.toLowerCase()}`);
+    log(act, n, extra);
+  });
+  $("vLog").querySelectorAll(".segb").forEach(b=>b.onclick=()=>{ SEGMENT=b.dataset.seg; renderLog(); });
+  $("openOutcome").onclick=openOutcome;
+}
+
+function renderBoard(){
+  const max=Math.max(1,...STATE.people.map(p=>Math.max(p.letters,p.calls/4,p.convos,p.wins*4)));
+  const bar=(v,s,c)=>`<i><b class="${c}" style="width:${Math.min(100,v/s*100)}%"></b></i>`;
+  const mini=p=>`<div class="mini">
+      ${bar(p.letters,max,"f-letters")}${bar(p.calls,max*4,"f-calls")}
+      ${bar(p.convos,max,"f-convos")}${bar(p.wins,Math.max(1,max/4),"f-wins")}
+    </div>`;
+
+  const racing = STATE.people.filter(p=>p.competing!==false);
+  const pace   = STATE.people.filter(p=>p.competing===false);
+
+  const rows = racing.map(p=>`
+    <div class="brow ${p.rank<=3?"p"+p.rank:""} ${p.id===ME?.id?"me":""}">
+      <div class="rk">${p.rank}</div>
+      <div><div class="n">${p.display_name}</div>${mini(p)}</div>
+      <div class="p"><b>${p.points}</b>${p.pending_points?`<span>+${p.pending_points} pending</span>`:""}</div>
+    </div>`).join("");
+
+  const paceRows = pace.map(p=>`
+    <div class="brow pace ${p.id===ME?.id?"me":""}">
+      <div class="rk">◆</div>
+      <div>
+        <div class="n">${p.display_name}</div>
+        <div class="pacelbl">Setting the pace — not claiming prizes</div>
+        ${mini(p)}
+      </div>
+      <div class="p"><b>${p.points}</b>${p.pending_points?`<span>+${p.pending_points} pending</span>`:""}</div>
+    </div>`).join("");
+
+  $("vBoard").innerHTML = STATE.people.length
+    ? rows + paceRows
+    : `<div class="empty">No entries yet. Be first on the board.</div>`;
+}
+
+function renderMe(){
+  const p=me();
+  if(!p){ $("vMe").innerHTML=`<div class="empty">Log something to get started.</div>`; return; }
+  const max=Math.max(1,p.letters,p.calls/4,p.convos,p.wins*4);
+  const trk=(k,label,v,s,c)=>`<div class="trkrow">
+      <span class="l">${label}</span>
+      <div class="bar"><b class="${c}" style="width:${Math.min(100,v/s*100)}%"></b></div>
+      <span class="v">${v}</span></div>`;
+  const next = STATE.shelf.filter(z=>!z.sold && z.cost>p.tokens).sort((a,b)=>a.cost-b.cost)[0];
+  const can  = STATE.shelf.filter(z=>!z.sold && z.cost<=p.tokens);
+  const team = STATE.people.reduce((s,x)=>s+x.points,0);
+  const share = team ? Math.round(p.points/team*100) : 0;
+  const pacer = p.competing===false;
+
+  $("vMe").innerHTML = `
+    <div class="stats">
+      <div class="stat"><b>${pacer?"◆":p.rank}</b><span>${pacer?"Pace":"Rank"}</span></div>
+      <div class="stat"><b>${p.points}</b><span>Points</span></div>
+      <div class="stat"><b>${pacer?share+"%":p.tokens}</b><span>${pacer?"Of team":"Tokens"}</span></div>
+    </div>
+    <div class="trk">
+      ${trk("letters","Letters",p.letters,max,"f-letters")}
+      ${trk("calls","Calls",p.calls,max*4,"f-calls")}
+      ${trk("convos","Convos",p.convos,max,"f-convos")}
+      ${trk("wins","Wins",p.wins,Math.max(1,max/4),"f-wins")}
+    </div>
+    ${p.pending_points?`<div class="empty" style="text-align:left">
+      <b style="color:var(--postal)">+${p.pending_points} pending.</b>
+      Outcome points post once they're confirmed.</div>`:""}
+    <div class="trk">
+      <div class="trkrow" style="grid-template-columns:1fr">
+        <span class="l">${
+          pacer ? "In it with the team, out of the prize running"
+          : can.length ? `You can claim ${can.length} prize${can.length>1?"s":""} now`
+          : next ? `${next.cost-p.tokens} points to ${next.name}`
+          : "Nothing left to claim"}</span>
+      </div>
+    </div>
+    <div class="list">${
+      STATE.mine.length ? STATE.mine.map(e=>{
+        const isWin=CONFIG.outcomes.some(o=>o.action===e.action);
+        return `<div class="li">
+          <span class="t">${new Date(e.created_at).toLocaleDateString([], {month:"numeric",day:"numeric"})}</span>
+          <span>${e.action}${(e.qty||1)>1?" ×"+e.qty:""}</span>
+          <span class="a ${isWin&&!e.verified?"pend":""}">${isWin?(e.verified?"verified":"pending"):"logged"}</span>
+        </div>`;
+      }).join("") : `<div class="empty">Nothing logged yet.</div>`}
+    </div>`;
+}
+
+function renderShelf(){
+  const p=me(), tok=p?p.tokens:0;
+  $("vShelf").innerHTML = `<div class="shelf">${STATE.shelf.map(z=>`
+    <div class="pz ${z.sold?"gone":(tok>=z.cost?"reach":"")}">
+      ${z.sold?'<div class="so">Sold out</div>':''}
+      <b>${z.cost}</b>
+      <div class="u">Tokens${!z.sold&&tok>=z.cost?" · yours":""}</div>
+      <div class="n">${z.name}</div>
+    </div>`).join("")}</div>`;
+}
+
+function renderHeader(){
+  const p=me();
+  const who=$("whoami");
+  if(ME){ who.textContent=ME.display_name; who.classList.add("named"); }
+  else  { who.textContent=CONFIG.title;    who.classList.remove("named"); }
+  const pacer = p && p.competing===false;
+  $("myRank").textContent = p ? (pacer?"◆":p.rank) : "—";
+  $("myRankLbl").textContent = p ? `${p.points} pts` : "Your rank";
+  const s=new Date(CONFIG.start+"T00:00:00"), e=new Date(CONFIG.end+"T23:59:59"), n=new Date();
+  const day=Math.floor((n-s)/864e5)+1, tot=Math.floor((e-s)/864e5)+1;
+  $("daylbl").textContent = n<s ? "Starts soon"
+    : n>e ? "Contest closed"
+    : `Day ${Math.min(day,tot)} of ${tot}`;
+}
+
+function renderAll(){ renderHeader(); renderLog(); renderBoard(); renderMe(); renderShelf(); }
+
+/* ============================================================
+   OUTCOME MODAL
+   ============================================================ */
+function openOutcome(){
+  PICKED=null;
+  $("acct").value=""; $("mErr").textContent=""; $("mSave").disabled=true;
+  $("outcomeOpts").innerHTML = CONFIG.outcomes.map(o=>`
+    <button class="ob" data-o="${o.action}" aria-pressed="false">
+      <span class="on2">${o.action}</span><span class="op">${o.pts} pts</span>
+    </button>`).join("");
+  $("outcomeOpts").querySelectorAll(".ob").forEach(b=>b.onclick=()=>{
+    PICKED=b.dataset.o;
+    $("outcomeOpts").querySelectorAll(".ob").forEach(x=>
+      x.setAttribute("aria-pressed", String(x===b)));
+    validate();
+  });
+  $("acct").oninput=validate;
+  $("modal").classList.add("on");
+}
+function validate(){
+  $("mSave").disabled = !(PICKED && $("acct").value.trim());
+}
+function closeOutcome(){ $("modal").classList.remove("on"); }
+
+async function saveOutcome(){
+  const acct=$("acct").value.trim();
+  if(!PICKED || !acct){ $("mErr").textContent="Pick an outcome and enter a name."; return; }
+  $("mSave").disabled=true;
+  closeOutcome();
+  toast(`${PICKED} logged — pending`, true);
+  if(navigator.vibrate) navigator.vibrate([12,40,12]);
+  await log(PICKED, 1, { account_name:acct });
+}
+
+/* ============================================================
+   NAME GATE
+   ============================================================ */
+async function verifyPin(name, pin){
+  if(isDemo()) return STATE.roster.find(p=>p.display_name===name)?.id || null;
+  const res = await sb("rpc/claim_identity", {
+    method:"POST",
+    body: JSON.stringify({ p_name:name, p_pin:pin })
+  });
+  return res || null;   // the database returns null when the PIN is wrong
+}
+
+/* ============================================================
+   ADMIN
+   Admin PIN lives in memory only — never written to the device.
+   Every action is re-checked inside the database.
+   ============================================================ */
+let ADMIN_PIN = null;
+let ADMIN = { pins:[], pending:[] };
+
+async function adminCall(fn, args){
+  return sb("rpc/"+fn, { method:"POST", body: JSON.stringify(args) });
+}
+
+async function adminLoad(){
+  const [pins, pending] = await Promise.all([
+    adminCall("admin_list_pins", { p_admin_pin: ADMIN_PIN }),
+    adminCall("admin_pending",   { p_admin_pin: ADMIN_PIN })
+  ]);
+  ADMIN.pins = pins || [];
+  ADMIN.pending = pending || [];
+}
+
+function renderAdminLock(msg){
+  $("vAdmin").innerHTML = `
+    <div class="acard">
+      <h4>Admin</h4>
+      <div class="hint">Enter your 6-digit admin PIN</div>
+      <input type="tel" id="apinInput" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••••">
+      <button class="go" id="apinGo" style="width:100%;margin-top:12px;padding:14px;background:var(--manila);color:var(--ink);font-family:var(--display);font-weight:700;letter-spacing:.06em;text-transform:uppercase">Unlock</button>
+      <div class="pinerr">${msg||""}</div>
+    </div>`;
+  $("apinInput").oninput=e=>{ e.target.value=e.target.value.replace(/\D/g,"").slice(0,6); };
+  $("apinInput").onkeydown=e=>{ if(e.key==="Enter") adminUnlock(); };
+  $("apinGo").onclick=adminUnlock;
+}
+
+async function adminUnlock(){
+  const v = $("apinInput").value.trim();
+  if(v.length!==6){ renderAdminLock("Six digits."); return; }
+  ADMIN_PIN = v;
+  try{
+    await adminLoad();
+    renderAdmin();
+  }catch(err){
+    ADMIN_PIN = null;
+    renderAdminLock("That PIN doesn't match.");
+  }
+}
+
+function renderAdmin(){
+  if(!ADMIN_PIN){ renderAdminLock(); return; }
+
+  const pending = ADMIN.pending.length ? ADMIN.pending.map(e=>`
+    <div class="arow">
+      <div style="min-width:0">
+        <div class="an">${e.who}</div>
+        <span class="sm">${e.action} · ${e.account_name||"no account"} · ${new Date(e.logged_at).toLocaleDateString([], {month:"numeric",day:"numeric"})}</span>
+      </div>
+      <button class="abtn go" data-verify="${e.entry_id}" style="margin-left:auto">Confirm</button>
+    </div>`).join("")
+    : `<div class="sm" style="padding:8px 0">Nothing waiting. All outcomes confirmed.</div>`;
+
+  const pins = ADMIN.pins.map(p=>`
+    <div class="arow">
+      <span class="an">${p.name}</span>
+      <span class="apin">${p.pin}</span>
+      <button class="abtn" data-reset="${p.name}">Reset</button>
+    </div>`).join("");
+
+  $("vAdmin").innerHTML = `
+    <div class="acard">
+      <h4>Pending outcomes${ADMIN.pending.length?` (${ADMIN.pending.length})`:""}</h4>
+      <div class="hint">Check the account against Salesforce, then confirm</div>
+      ${pending}
+    </div>
+    <div class="acard" style="border-left-color:var(--manila)">
+      <h4>PINs</h4>
+      <div class="hint">Reset generates a new one — write it down before leaving this screen</div>
+      ${pins}
+      <div id="resetOut"></div>
+    </div>
+    <div class="foot"><button id="adminLock">Lock admin</button></div>`;
+
+  $("vAdmin").querySelectorAll("[data-verify]").forEach(b=>b.onclick=async()=>{
+    b.disabled=true; b.textContent="…";
+    try{
+      await adminCall("admin_verify", { p_admin_pin: ADMIN_PIN, p_entry_id: b.dataset.verify });
+      toast("Confirmed", true);
+      await adminLoad(); renderAdmin(); await refresh();
+    }catch(err){ b.disabled=false; b.textContent="Confirm"; toast("Couldn't confirm"); }
+  });
+
+  $("vAdmin").querySelectorAll("[data-reset]").forEach(b=>b.onclick=async()=>{
+    const who=b.dataset.reset;
+    b.disabled=true; b.textContent="…";
+    try{
+      const np = await adminCall("admin_reset_pin", { p_admin_pin: ADMIN_PIN, p_name: who });
+      await adminLoad(); renderAdmin();
+      $("resetOut").innerHTML = `<div class="newpin">${who}'s new PIN is <b>${np}</b> — tell them now.</div>`;
+    }catch(err){ b.disabled=false; b.textContent="Reset"; toast("Couldn't reset"); }
+  });
+
+  $("adminLock").onclick=()=>{ ADMIN_PIN=null; ADMIN={pins:[],pending:[]}; renderAdminLock(); };
+}
+
+async function gate(){
+  STATE.roster = await fetchRoster();
+  const saved = store.get("me");
+  if(saved){
+    const found = STATE.roster.find(p=>p.id===saved);
+    if(found){ ME=found; $("gate").hidden=true; applyAdminTab(); return true; }
+  }
+  showNameStep();
+  return false;
+}
+
+function showNameStep(){
+  $("gate").hidden=false;
+  $("gateNames").hidden=false;
+  $("gatePin").hidden=true;
+  $("nameList").innerHTML = STATE.roster.map(p=>
+    `<button class="nb" data-id="${p.id}">${p.display_name}</button>`).join("")
+    || `<div class="empty">No participants set up yet.</div>`;
+  $("nameList").querySelectorAll(".nb").forEach(b=>b.onclick=()=>{
+    const picked = STATE.roster.find(p=>p.id===b.dataset.id);
+    if(CONFIG.requirePin && !isDemo()) showPinStep(picked);
+    else signIn(picked);
+  });
+}
+
+function showPinStep(person){
+  PENDING = person;
+  $("gateNames").hidden=true;
+  $("gatePin").hidden=false;
+  $("pinName").textContent = person.display_name;
+  $("pinInput").value=""; $("pinErr").textContent=""; $("pinGo").disabled=true;
+  setTimeout(()=>$("pinInput").focus(), 50);
+}
+
+async function submitPin(){
+  const pin = $("pinInput").value.trim();
+  $("pinGo").disabled=true;
+  $("pinErr").textContent="Checking…";
+  try{
+    const id = await verifyPin(PENDING.display_name, pin);
+    if(!id){
+      $("pinErr").textContent="That PIN doesn't match. Try again.";
+      $("pinInput").value=""; $("pinInput").focus();
+      return;
+    }
+    signIn({ id, display_name: PENDING.display_name });
+  }catch(err){
+    $("pinErr").textContent="Couldn't check that right now. Try again in a moment.";
+    $("pinGo").disabled=false;
+  }
+}
+
+async function signIn(person){
+  ME = person;
+  store.set("me", ME.id);
+  $("gate").hidden=true;
+  applyAdminTab();
+  await refresh();
+  toast(`Signed in as ${ME.display_name}`);
+}
+
+function applyAdminTab(){
+  const row = STATE.roster.find(p=>p.id===ME?.id);
+  const isAdmin = !!(row && row.is_admin) && !isDemo();
+  $("tabAdmin").hidden = !isAdmin;
+  if(isAdmin) renderAdminLock();
+}
+
+/* ============================================================
+   CHROME
+   ============================================================ */
+let toastT;
+function toast(msg, win){
+  const t=$("toast");
+  t.textContent=msg;
+  t.className="toast on"+(win?" win":"");
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>t.className="toast"+(win?" win":""),2000);
+}
+function showBanner(m){ $("banner").textContent=m; $("banner").classList.add("on"); }
+function hideBanner(){ $("banner").classList.remove("on"); }
+
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",String(x===t)));
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on", v.id===t.dataset.v));
+});
+$("mCancel").onclick=closeOutcome;
+$("mSave").onclick=saveOutcome;
+$("modal").onclick=e=>{ if(e.target===$("modal")) closeOutcome(); };
+$("notme").onclick=()=>{ store.del("me"); ME=null; ADMIN_PIN=null; location.reload(); };
+$("pinBack").onclick=showNameStep;
+$("pinInput").oninput=e=>{
+  e.target.value = e.target.value.replace(/\D/g,"").slice(0,4);
+  $("pinGo").disabled = e.target.value.length !== 4;
+  $("pinErr").textContent="";
+};
+$("pinInput").onkeydown=e=>{ if(e.key==="Enter" && !$("pinGo").disabled) submitPin(); };
+$("pinGo").onclick=submitPin;
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+async function refresh(){
+  try{
+    await fetchAll();
+    hideBanner();
+    renderAll();
+  }catch(err){
+    showBanner("Offline — your entries are saved and will sync");
+    renderAll();
+  }
+}
+
+async function boot(){
+  document.title = CONFIG.title;
+  if(isDemo()) demoInit();
+  try{ QUEUE = JSON.parse(store.get("queue")||"[]"); }catch(e){ QUEUE=[]; }
+  const ready = await gate();
+  await refresh();
+  if(ready) await flushQueue();
+  setInterval(async()=>{ await refresh(); await flushQueue(); }, CONFIG.refreshSeconds*1000);
+  window.addEventListener("online", flushQueue);
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) refresh(); });
+}
+boot();
+</script>
+</body>
+</html>

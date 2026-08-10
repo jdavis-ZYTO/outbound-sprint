@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dispatch Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;500;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DISPATCH BOARD — outbound competition display
+   Palette: ink ground, manila card stock, postal red, dial teal
+   ============================================================ */
+:root{
+  --ink:#12202B;
+  --ink-2:#1B2E3C;
+  --ink-3:#25404F;
+  --manila:#E8D5A9;
+  --paper:#F5EFE3;
+  --postal:#D8412F;
+  --dial:#4FB8A8;
+  --dim:#7D95A3;
+
+  --display:'Oswald',Impact,sans-serif;
+  --body:'IBM Plex Sans',system-ui,sans-serif;
+  --data:'IBM Plex Mono',ui-monospace,monospace;
+
+  --pad:clamp(14px,1.6vw,30px);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+html,body{height:100%;overflow:hidden}
+
+body{
+  background:var(--ink);
+  color:var(--paper);
+  font-family:var(--body);
+  /* faint sorting-facility grid, not decoration: it reads as ledger ruling */
+  background-image:
+    repeating-linear-gradient(0deg,transparent 0 39px,rgba(232,213,169,.035) 39px 40px),
+    repeating-linear-gradient(90deg,transparent 0 39px,rgba(232,213,169,.02) 39px 40px);
+}
+
+/* ---------- frame ---------- */
+.frame{height:100vh;display:flex;flex-direction:column}
+
+.topbar{
+  display:flex;align-items:stretch;gap:0;
+  border-bottom:3px solid var(--manila);
+  background:var(--ink-2);
+  flex:0 0 auto;
+}
+.brand{
+  padding:calc(var(--pad)*.55) var(--pad);
+  display:flex;flex-direction:column;justify-content:center;
+  border-right:1px solid var(--ink-3);
+}
+.brand .eyebrow{
+  font-family:var(--data);font-size:clamp(9px,.62vw,13px);
+  letter-spacing:.28em;color:var(--dial);text-transform:uppercase;
+}
+.brand h1{
+  font-family:var(--display);font-weight:700;
+  font-size:clamp(20px,2.05vw,42px);
+  letter-spacing:.045em;text-transform:uppercase;line-height:1.02;
+  color:var(--manila);
+}
+.meta{display:flex;margin-left:auto}
+.metacell{
+  padding:calc(var(--pad)*.55) var(--pad);
+  border-left:1px solid var(--ink-3);
+  display:flex;flex-direction:column;justify-content:center;min-width:8.5vw;
+}
+.metacell .k{
+  font-family:var(--data);font-size:clamp(8px,.55vw,12px);
+  letter-spacing:.22em;color:var(--dim);text-transform:uppercase;
+}
+.metacell .v{
+  font-family:var(--display);font-weight:500;
+  font-size:clamp(17px,1.75vw,36px);color:var(--paper);line-height:1.05;
+}
+.metacell .v.hot{color:var(--postal)}
+
+/* ---------- stage ---------- */
+.stage{flex:1 1 auto;position:relative;overflow:hidden}
+.panel{
+  position:absolute;inset:0;padding:var(--pad);
+  display:flex;flex-direction:column;
+  opacity:0;pointer-events:none;
+  transform:translateY(14px);
+  transition:opacity .5s ease,transform .5s ease;
+}
+.panel.live{opacity:1;transform:none;pointer-events:auto}
+
+.panelhead{
+  display:flex;align-items:baseline;gap:.9em;
+  margin-bottom:calc(var(--pad)*.7);flex:0 0 auto;
+}
+.panelhead h2{
+  font-family:var(--display);font-weight:700;text-transform:uppercase;
+  font-size:clamp(18px,1.9vw,38px);letter-spacing:.05em;color:var(--manila);
+}
+.panelhead .sub{
+  font-family:var(--data);font-size:clamp(9px,.66vw,14px);
+  letter-spacing:.2em;color:var(--dim);text-transform:uppercase;
+}
+
+/* ---------- dispatch board rows ---------- */
+.board{flex:1 1 auto;display:flex;flex-direction:column;gap:.5vh;min-height:0}
+.row{
+  display:grid;
+  grid-template-columns:4.2vw minmax(0,1.1fr) minmax(0,1.5fr) 7vw 6vw;
+  align-items:center;gap:calc(var(--pad)*.6);
+  background:var(--ink-2);
+  border-left:4px solid var(--ink-3);
+  padding:0 calc(var(--pad)*.7);
+  flex:1 1 0;min-height:0;
+}
+.row.top{border-left-color:var(--postal);background:#22323E}
+.row.second{border-left-color:var(--manila)}
+.row.third{border-left-color:var(--dial)}
+.row.pace{border-left-color:var(--manila);background:#16252F;
+  border-top:2px dashed var(--ink-3);flex:0 0 auto;padding-top:.4vh;padding-bottom:.4vh}
+.row.pace .rank{font-family:var(--data);font-size:clamp(8px,.62vw,14px);
+  letter-spacing:.14em;color:var(--manila);line-height:1.1;text-align:center;display:block}
+
+.rank{
+  font-family:var(--display);font-weight:700;
+  font-size:clamp(20px,2.5vw,52px);color:var(--dim);
+  display:flex;align-items:center;gap:.22em;
+}
+.row.top .rank{color:var(--postal)}
+.row.second .rank{color:var(--manila)}
+.row.third .rank{color:var(--dial)}
+.delta{font-size:.36em;font-family:var(--data);letter-spacing:0}
+.delta.up{color:var(--dial)}
+.delta.down{color:var(--postal)}
+.delta.flat{color:var(--dim);opacity:.5}
+
+.who{min-width:0}
+.who .nm{
+  font-family:var(--display);font-weight:500;text-transform:uppercase;
+  font-size:clamp(16px,1.75vw,38px);letter-spacing:.035em;line-height:1.06;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.who .tok{
+  font-family:var(--data);font-size:clamp(9px,.66vw,14px);
+  color:var(--manila);letter-spacing:.1em;
+}
+.who .tok .spent{color:var(--dim)}
+
+/* four independent tracks, each its own rail */
+.tracks{display:flex;flex-direction:column;gap:.32vh;min-width:0}
+.track{display:grid;grid-template-columns:3.6vw 1fr 3.2vw;align-items:center;gap:.5vw}
+.track .lbl{
+  font-family:var(--data);font-size:clamp(7px,.52vw,11px);
+  letter-spacing:.14em;color:var(--dim);text-transform:uppercase;
+}
+.track .rail{height:clamp(5px,.62vh,10px);background:#0E1A23;overflow:hidden}
+.track .fill{height:100%;width:0;transition:width .8s cubic-bezier(.2,.8,.25,1)}
+.track .num{
+  font-family:var(--data);font-size:clamp(8px,.6vw,13px);
+  color:var(--paper);text-align:right;
+}
+.fill.letters{background:var(--manila)}
+.fill.calls{background:var(--dial)}
+.fill.convos{background:#8FD0C4}
+.fill.wins{background:var(--postal)}
+
+.pts{
+  font-family:var(--display);font-weight:700;
+  font-size:clamp(24px,3vw,64px);text-align:right;line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.pend{
+  font-family:var(--data);font-size:clamp(8px,.6vw,13px);
+  color:var(--postal);text-align:right;letter-spacing:.08em;
+}
+.pend.none{opacity:0}
+@keyframes breathe{0%,100%{opacity:.35}50%{opacity:1}}
+.pend:not(.none){animation:breathe 2.2s ease-in-out infinite}
+
+/* postmark stamp — the signature mark */
+.stamp{
+  justify-self:center;
+  width:clamp(38px,4.4vw,92px);aspect-ratio:1;
+  border:3px double var(--postal);border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--postal);transform:rotate(-9deg);
+  font-family:var(--data);text-align:center;line-height:1.05;
+  opacity:.9;
+}
+.stamp .big{font-size:clamp(13px,1.5vw,32px);font-weight:600}
+.stamp .sm{font-size:clamp(6px,.5vw,11px);letter-spacing:.1em}
+.stamp.empty{border-style:dashed;border-width:2px;color:var(--ink-3);opacity:.55}
+
+/* ---------- tracks panel ---------- */
+.railgrid{flex:1 1 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:var(--pad);min-height:0}
+.railcard{
+  background:var(--ink-2);border-top:3px solid var(--ink-3);
+  padding:calc(var(--pad)*.8);display:flex;flex-direction:column;min-height:0;
+}
+.railcard.letters{border-top-color:var(--manila)}
+.railcard.calls{border-top-color:var(--dial)}
+.railcard.convos{border-top-color:#8FD0C4}
+.railcard.wins{border-top-color:var(--postal)}
+.railcard .cap{
+  font-family:var(--data);font-size:clamp(9px,.68vw,15px);
+  letter-spacing:.2em;color:var(--dim);text-transform:uppercase;
+}
+.railcard .tot{
+  font-family:var(--display);font-weight:700;line-height:.92;
+  font-size:clamp(40px,6.4vw,140px);
+}
+.railcard.letters .tot{color:var(--manila)}
+.railcard.calls .tot{color:var(--dial)}
+.railcard.convos .tot{color:#8FD0C4}
+.railcard.wins .tot{color:var(--postal)}
+.railcard .goalline{
+  font-family:var(--data);font-size:clamp(9px,.65vw,14px);color:var(--dim);
+  margin-bottom:.5em;
+}
+.seg{display:flex;height:clamp(10px,1.5vh,24px);background:#0E1A23;margin-top:auto}
+.seg span{display:block;height:100%;border-right:1px solid var(--ink)}
+
+/* ---------- shelf ---------- */
+.shelf{flex:1 1 auto;display:grid;gap:calc(var(--pad)*.7);min-height:0;
+  grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr}
+.item{
+  background:var(--ink-2);padding:calc(var(--pad)*.75);
+  display:flex;flex-direction:column;position:relative;overflow:hidden;
+  border:1px solid var(--ink-3);
+}
+.item .cost{
+  font-family:var(--display);font-weight:700;color:var(--manila);
+  font-size:clamp(22px,2.6vw,54px);line-height:1;
+}
+.item .costlbl{font-family:var(--data);font-size:clamp(8px,.55vw,12px);color:var(--dim);letter-spacing:.18em}
+.item .nm2{
+  font-family:var(--body);font-weight:600;margin-top:auto;
+  font-size:clamp(11px,.95vw,21px);line-height:1.2;
+}
+.item.gone{opacity:.4}
+.item.gone .soldout{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%) rotate(-14deg);
+  border:3px solid var(--postal);color:var(--postal);
+  font-family:var(--display);font-weight:700;letter-spacing:.12em;
+  font-size:clamp(14px,1.5vw,32px);padding:.14em .5em;white-space:nowrap;
+}
+
+/* ---------- today ---------- */
+.todaygrid{flex:1 1 auto;display:grid;grid-template-columns:1.15fr 1fr;gap:var(--pad);min-height:0}
+.moverlist{display:flex;flex-direction:column;gap:.6vh;min-height:0}
+.mover{
+  background:var(--ink-2);padding:calc(var(--pad)*.55) calc(var(--pad)*.75);
+  display:flex;align-items:center;gap:.8em;flex:1 1 0;min-height:0;
+  border-left:3px solid var(--dial);
+}
+.mover .mn{font-family:var(--display);font-weight:500;text-transform:uppercase;
+  font-size:clamp(14px,1.5vw,32px);letter-spacing:.03em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mover .mp{margin-left:auto;font-family:var(--display);font-weight:700;
+  font-size:clamp(18px,2vw,42px);color:var(--dial);font-variant-numeric:tabular-nums}
+.tickerwrap{background:var(--ink-2);padding:calc(var(--pad)*.75);
+  display:flex;flex-direction:column;min-height:0;border-top:3px solid var(--manila)}
+.tickerwrap .cap{font-family:var(--data);font-size:clamp(9px,.68vw,15px);
+  letter-spacing:.2em;color:var(--dim);text-transform:uppercase;margin-bottom:.7em}
+.tick{flex:1 1 auto;overflow:hidden;display:flex;flex-direction:column;gap:.55vh}
+.tickrow{display:flex;gap:.7em;align-items:baseline;font-family:var(--data);
+  font-size:clamp(10px,.85vw,19px);border-bottom:1px dotted var(--ink-3);padding-bottom:.4em}
+.tickrow .t{color:var(--dim);font-size:.8em}
+.tickrow .a{color:var(--manila);margin-left:auto;white-space:nowrap}
+.tickrow .a.win{color:var(--postal);font-weight:600}
+
+/* ---------- footer ---------- */
+.footer{
+  flex:0 0 auto;display:flex;align-items:center;gap:var(--pad);
+  border-top:1px solid var(--ink-3);background:var(--ink-2);
+  padding:calc(var(--pad)*.4) var(--pad);
+}
+.dots{display:flex;gap:.5em;margin-left:auto}
+.dot{width:clamp(6px,.5vw,11px);aspect-ratio:1;border-radius:50%;background:var(--ink-3)}
+.dot.on{background:var(--manila)}
+.status{font-family:var(--data);font-size:clamp(8px,.58vw,13px);
+  letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+.status b{color:var(--dial);font-weight:400}
+.status.warn b{color:var(--postal)}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+@media (max-width:820px){
+  .row{grid-template-columns:3.6em 1fr 4.5em;}
+  .tracks,.stamp{display:none}
+  .railgrid,.todaygrid{grid-template-columns:1fr}
+  .shelf{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="eyebrow">Outbound Sprint</div>
+      <h1 id="brandTitle">Dispatch Board</h1>
+    </div>
+    <div class="meta">
+      <div class="metacell"><div class="k">Day</div><div class="v" id="mDay">—</div></div>
+      <div class="metacell"><div class="k">Left</div><div class="v hot" id="mLeft">—</div></div>
+      <div class="metacell"><div class="k">Logged</div><div class="v" id="mTotal">—</div></div>
+      <div class="metacell"><div class="k">Time</div><div class="v" id="mClock">—</div></div>
+    </div>
+  </header>
+
+  <main class="stage">
+
+    <section class="panel" id="pBoard">
+      <div class="panelhead"><h2>Standings</h2><span class="sub">Points · tokens · verified outcomes</span></div>
+      <div class="board" id="boardRows"></div>
+    </section>
+
+    <section class="panel" id="pTracks">
+      <div class="panelhead"><h2>The Four Tracks</h2><span class="sub">Every track counts on its own</span></div>
+      <div class="railgrid" id="railGrid"></div>
+    </section>
+
+    <section class="panel" id="pToday">
+      <div class="panelhead"><h2>Today</h2><span class="sub">Movers since midnight · live log</span></div>
+      <div class="todaygrid">
+        <div class="moverlist" id="moverList"></div>
+        <div class="tickerwrap">
+          <div class="cap">Last logged</div>
+          <div class="tick" id="tickList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="pShelf">
+      <div class="panelhead"><h2>Prize Shelf</h2><span class="sub">Spend tokens · first come, first served</span></div>
+      <div class="shelf" id="shelfGrid"></div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="status" id="status">Loading</div>
+    <div class="dots" id="dots"></div>
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — edit this block only
+   ============================================================ */
+const CONFIG = {
+  title: "Dispatch Board",
+
+  // "demo" | "sheet" | "supabase"
+  source: "supabase",
+
+  // source: "supabase" — from Supabase → Project Settings → API.
+  // The anon key is safe here: RLS blocks writes, deletes, and self-verification.
+  supabase: {
+    url:"https://bikbqntyireqwqaofmeq.supabase.co",
+    anonKey:"sb_publishable_aWggUCj1M0wuU28900VBBA_SgonFeH6"
+  },
+
+  // source: "sheet" — File > Share > Publish to web > entire sheet > CSV.
+  csvUrl: "",
+
+  start: "2026-08-17",   // first day of the contest (YYYY-MM-DD)
+  end:   "2026-08-28",   // last day
+
+  refreshSeconds: 60,
+  rotateSeconds: 20,
+
+  // Points per action. Must match the Google Form's action list exactly.
+  points: {
+    "Call attempt":       1,
+    "Letter shipped":     3,
+    "Conversation":       5,
+    "Google review":     10,
+    "Referral":          15,
+    "Renewal":           20,
+    "Annual upgrade":    30,
+    "System purchase":   60
+  },
+
+  // Which actions belong to which track
+  tracks: {
+    letters: ["Letter shipped"],
+    calls:   ["Call attempt"],
+    convos:  ["Conversation"],
+    wins:    ["Google review","Referral","Renewal","Annual upgrade","System purchase"]
+  },
+
+  trackLabels: { letters:"Letters", calls:"Calls", convos:"Convos", wins:"Wins" },
+
+  // Team targets for the track panel
+  trackGoals: { letters:400, calls:1200, convos:300, wins:40 },
+
+  // Conversations only. Everything else scores flat.
+  listMultipliers: { "Unsubscribed":2, "Lead":2, "Current customer":1 },
+
+  dailyCallCap: 40,
+
+  // Tokens already redeemed, by name
+  spent: {},
+
+  // On the board and in the team totals, but off the ranked ladder and
+  // not eligible for prizes. Names must match the roster exactly.
+  pacesetters: ["Josh D"],
+
+  // Mark sold:true as items go
+  shelf: [
+    { name:"Bluetooth speaker",  cost:250, sold:false },
+    { name:"Camping chair",      cost:250, sold:false },
+    { name:"$50 gift card",      cost:250, sold:false },
+    { name:"Percussion massager",cost:120, sold:false },
+    { name:"$25 gift card",      cost:120, sold:false },
+    { name:"Sleeve of golf balls",cost:40, sold:false },
+    { name:"Monster 4-pack",     cost:40,  sold:false },
+    { name:"$10 gift card",      cost:40,  sold:false }
+  ],
+
+  // Everyone participating. Names must match the form exactly.
+  roster: ["Tanner R","Sam W","Samantha C","Jen M","Max M","Morgan R",
+           "Courtney H","Jason E","Joseph C","Stu D","Michael P",
+           "Aaron R","Kirsten S","Josh D"]
+};
+
+/* ============================================================
+   DATA
+   ============================================================ */
+const ACTIONS = Object.keys(CONFIG.points);
+const TRACK_KEYS = ["letters","calls","convos","wins"];
+let rows = [];
+let lastRank = {};
+
+// Every source normalizes into this shape before anything renders.
+let MODEL = { people:[], feed:[], shelf:[] };
+
+function shelfFromConfig(){
+  return CONFIG.shelf.map(i=>({ name:i.name, cost:i.cost, sold:!!i.sold }));
+}
+
+function feedFromRows(){
+  return [...rows].sort((a,b)=>b.ts-a.ts).slice(0,9).map(r=>({
+    ts:r.ts, name:r.name, action:r.action, count:r.count,
+    verified:r.verified, isWin:trackOf(r.action)==="wins"
+  }));
+}
+
+function trackOf(action){
+  for(const k of TRACK_KEYS){ if(CONFIG.tracks[k].includes(action)) return k; }
+  return null;
+}
+
+/* --- CSV parsing (quote-aware, no dependencies) --- */
+function parseCSV(text){
+  const out=[]; let row=[], cell="", q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else q=false; }
+      else cell+=c;
+    } else if(c==='"'){ q=true; }
+    else if(c===','){ row.push(cell); cell=""; }
+    else if(c==='\n'){ row.push(cell); out.push(row); row=[]; cell=""; }
+    else if(c!=='\r'){ cell+=c; }
+  }
+  if(cell.length||row.length){ row.push(cell); out.push(row); }
+  return out.filter(r=>r.some(v=>v.trim()!==""));
+}
+
+function findCol(headers, candidates){
+  const h = headers.map(x=>x.trim().toLowerCase());
+  for(const c of candidates){
+    const i = h.findIndex(x=>x.includes(c));
+    if(i>-1) return i;
+  }
+  return -1;
+}
+
+function normalize(grid){
+  if(!grid.length) return [];
+  const head = grid[0];
+  const ix = {
+    ts:      findCol(head,["timestamp","time"]),
+    name:    findCol(head,["name","who"]),
+    action:  findCol(head,["action","activity","outcome"]),
+    count:   findCol(head,["count","how many","qty"]),
+    list:    findCol(head,["list","segment"]),
+    account: findCol(head,["account","contact","customer"]),
+    ver:     findCol(head,["verified","confirmed"])
+  };
+  return grid.slice(1).map(r=>{
+    const get=i=> i>-1 ? (r[i]||"").trim() : "";
+    const n = parseInt(get(ix.count),10);
+    return {
+      ts: get(ix.ts) ? new Date(get(ix.ts)) : new Date(),
+      name: get(ix.name),
+      action: get(ix.action),
+      count: isNaN(n)||n<1 ? 1 : n,
+      list: get(ix.list) || "Current customer",
+      account: get(ix.account),
+      verified: /^(y|yes|true|1|verified)$/i.test(get(ix.ver))
+    };
+  }).filter(r=>r.name && CONFIG.points[r.action]!==undefined);
+}
+
+/* --- scoring --- */
+function dayKey(d){ return d.toISOString().slice(0,10); }
+
+function tally(){
+  const people={};
+  const ensure=n=>people[n] ||= {
+    name:n, pts:0, pending:0,
+    letters:0, calls:0, convos:0, wins:0, winsVerified:0,
+    today:0, callsByDay:{}
+  };
+  CONFIG.roster.forEach(ensure);
+
+  const today = dayKey(new Date());
+
+  // Enforce the daily call cap before scoring
+  const sorted = [...rows].sort((a,b)=>a.ts-b.ts);
+  for(const r of sorted){
+    const p = ensure(r.name);
+    const tk = trackOf(r.action);
+    let n = r.count;
+
+    if(r.action==="Call attempt"){
+      const dk = dayKey(r.ts);
+      const used = p.callsByDay[dk]||0;
+      const room = Math.max(0, CONFIG.dailyCallCap - used);
+      n = Math.min(n, room);
+      p.callsByDay[dk] = used + n;
+    }
+    if(n<=0) continue;
+
+    let val = CONFIG.points[r.action] * n;
+    if(r.action==="Conversation"){
+      val *= (CONFIG.listMultipliers[r.list] ?? 1);
+    }
+
+    if(tk) p[tk] += n;
+
+    // Outcomes only count once verified; until then they pulse as pending
+    const isWin = tk==="wins";
+    if(isWin && !r.verified){ p.pending += val; }
+    else {
+      if(isWin) p.winsVerified += n;
+      p.pts += val;
+      if(dayKey(r.ts)===today) p.today += val;
+    }
+  }
+
+  const list = Object.values(people);
+  list.forEach(p=>{
+    p.competing = !CONFIG.pacesetters.includes(p.name);
+    p.spent = CONFIG.spent[p.name] || 0;
+    p.tokens = p.competing ? Math.max(0, p.pts - p.spent) : 0;
+  });
+  list.sort((a,b)=> b.pts-a.pts || b.wins-a.wins || a.name.localeCompare(b.name));
+  let r = 0;
+  list.forEach(p=>{
+    p.rank = p.competing ? ++r : null;
+    const prev = lastRank[p.name];
+    p.delta = (prev===undefined || !p.competing) ? 0 : prev - p.rank;
+  });
+  return list;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+const $ = id=>document.getElementById(id);
+
+function renderBoard(people){
+  const max = Math.max(1,...people.map(p=>Math.max(p.letters,p.calls/4,p.convos,p.wins*4)));
+  const bar = (k,v,scale)=>`
+      <div class="track">
+        <span class="lbl">${CONFIG.trackLabels[k]}</span>
+        <div class="rail"><div class="fill ${k}" style="width:${Math.min(100,(v/scale)*100)}%"></div></div>
+        <span class="num">${v}</span>
+      </div>`;
+  const tracks = p=>`
+      <div class="tracks">
+        ${bar("letters",p.letters,max)}
+        ${bar("calls",p.calls,max*4)}
+        ${bar("convos",p.convos,max)}
+        ${bar("wins",p.wins,Math.max(1,max/4))}
+      </div>`;
+
+  const racing = people.filter(p=>p.competing!==false);
+  const pace   = people.filter(p=>p.competing===false);
+
+  const rows = racing.slice(0, pace.length?9:10).map(p=>{
+    const cls = p.rank===1?"top":p.rank===2?"second":p.rank===3?"third":"";
+    const d = p.delta>0?`<span class="delta up">▲${p.delta}</span>`
+            : p.delta<0?`<span class="delta down">▼${-p.delta}</span>`
+            : `<span class="delta flat">—</span>`;
+    const stamp = p.winsVerified>0
+      ? `<div class="stamp"><span class="big">${p.winsVerified}</span><span class="sm">VERIFIED</span></div>`
+      : `<div class="stamp empty"><span class="sm">${p.pending?"CLEARING":"NO WINS<br>YET"}</span></div>`;
+    const spent = p.spent ? ` <span class="spent">(${p.spent} spent)</span>` : "";
+    return `
+    <div class="row ${cls}">
+      <div class="rank">${p.rank}${d}</div>
+      <div class="who">
+        <div class="nm">${p.name}</div>
+        <div class="tok">${p.tokens} tokens${spent}</div>
+      </div>
+      ${tracks(p)}
+      <div>
+        <div class="pts">${p.pts}</div>
+        <div class="pend ${p.pending?"":"none"}">+${p.pending} pending</div>
+      </div>
+      ${stamp}
+    </div>`;
+  }).join("");
+
+  // Not ranked, not eligible for prizes — but the work still shows.
+  const paceRows = pace.map(p=>`
+    <div class="row pace">
+      <div class="rank">SETTING<br>THE PACE</div>
+      <div class="who">
+        <div class="nm">${p.name}</div>
+        <div class="tok">Competing, not claiming</div>
+      </div>
+      ${tracks(p)}
+      <div>
+        <div class="pts">${p.pts}</div>
+        <div class="pend ${p.pending?"":"none"}">+${p.pending} pending</div>
+      </div>
+      <div class="stamp empty"><span class="sm">NO<br>PRIZES</span></div>
+    </div>`).join("");
+
+  $("boardRows").innerHTML = rows + paceRows;
+}
+
+function renderTracks(people){
+  const palette=["#E8D5A9","#4FB8A8","#8FD0C4","#D8412F","#C9A227","#7D95A3","#B0623A","#5E8CA8","#9C7BB5","#6FA36F"];
+  $("railGrid").innerHTML = TRACK_KEYS.map(k=>{
+    const total = people.reduce((s,p)=>s+p[k],0);
+    const goal = CONFIG.trackGoals[k]||1;
+    const pct = Math.round((total/goal)*100);
+    const segs = people.filter(p=>p[k]>0)
+      .sort((a,b)=>b[k]-a[k])
+      .map((p,i)=>`<span title="${p.name}" style="width:${(p[k]/Math.max(total,goal))*100}%;background:${palette[i%palette.length]}"></span>`)
+      .join("");
+    return `
+    <div class="railcard ${k}">
+      <div class="cap">${CONFIG.trackLabels[k]}</div>
+      <div class="tot">${total}</div>
+      <div class="goalline">${pct}% of ${goal} team target · each bar is one person</div>
+      <div class="seg">${segs}</div>
+    </div>`;
+  }).join("");
+}
+
+function renderToday(people, feed){
+  const movers=[...people].sort((a,b)=>b.today-a.today).slice(0,6);
+  $("moverList").innerHTML = movers.map(p=>`
+    <div class="mover">
+      <span class="mn">${p.name}</span>
+      <span class="mp">${p.today>0?"+"+p.today:"—"}</span>
+    </div>`).join("") || `<div class="mover"><span class="mn">Nothing logged yet today</span></div>`;
+
+  $("tickList").innerHTML = feed.map(r=>{
+    const t = r.ts.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+    const q = r.count>1 ? ` ×${r.count}` : "";
+    return `<div class="tickrow">
+      <span class="t">${t}</span>
+      <span>${r.name}</span>
+      <span class="a ${r.isWin?"win":""}">${r.action}${q}${r.isWin&&!r.verified?" · pending":""}</span>
+    </div>`;
+  }).join("") || `<div class="tickrow"><span>Waiting on the first entry</span></div>`;
+}
+
+function renderShelf(people, shelf){
+  const best = Math.max(0,...people.map(p=>p.tokens));
+  $("shelfGrid").innerHTML = shelf.map(it=>{
+    const reach = !it.sold && best>=it.cost;
+    return `<div class="item ${it.sold?"gone":""}">
+      ${it.sold?'<div class="soldout">Sold out</div>':''}
+      <div class="cost">${it.cost}</div>
+      <div class="costlbl">Tokens${reach?" · claimable now":""}</div>
+      <div class="nm2">${it.name}</div>
+    </div>`;
+  }).join("");
+}
+
+function renderMeta(people){
+  const s=new Date(CONFIG.start+"T00:00:00"), e=new Date(CONFIG.end+"T23:59:59"), n=new Date();
+  const day = Math.floor((n-s)/864e5)+1;
+  const total = Math.floor((e-s)/864e5)+1;
+  const leftMs = e-n;
+  $("mDay").textContent = day<1 ? "Soon" : `${Math.min(day,total)} / ${total}`;
+  if(leftMs<=0) $("mLeft").textContent="Closed";
+  else if(leftMs<864e5) $("mLeft").textContent = Math.floor(leftMs/36e5)+"h";
+  else $("mLeft").textContent = Math.ceil(leftMs/864e5)+"d";
+  $("mTotal").textContent = people.reduce((s2,p)=>s2+p.pts,0);
+  $("mClock").textContent = new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+}
+
+function draw(){
+  const people = MODEL.people;
+  renderMeta(people);
+  renderBoard(people);
+  renderTracks(people);
+  renderToday(people, MODEL.feed);
+  renderShelf(people, MODEL.shelf);
+  people.forEach(p=>lastRank[p.name]=p.rank);
+}
+
+/* ============================================================
+   ROTATION
+   ============================================================ */
+const PANELS=["pBoard","pTracks","pToday","pShelf"];
+let pi=0;
+$("dots").innerHTML = PANELS.map(()=>'<div class="dot"></div>').join("");
+function show(i){
+  PANELS.forEach((id,k)=>$(id).classList.toggle("live",k===i));
+  [...$("dots").children].forEach((d,k)=>d.classList.toggle("on",k===i));
+}
+function rotate(){ pi=(pi+1)%PANELS.length; show(pi); }
+show(0);
+setInterval(rotate, CONFIG.rotateSeconds*1000);
+
+/* Arrow keys / tap to steer manually during setup */
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight"){ rotate(); }
+  if(e.key==="ArrowLeft"){ pi=(pi-1+PANELS.length)%PANELS.length; show(pi); }
+});
+document.querySelector(".stage").addEventListener("click", rotate);
+
+/* ============================================================
+   LOAD
+   ============================================================ */
+function setStatus(text, warn){
+  const el=$("status");
+  el.className = "status"+(warn?" warn":"");
+  el.innerHTML = text;
+}
+
+function demoRows(){
+  const names=CONFIG.roster;
+  const lists=["Current customer","Unsubscribed","Lead"];
+  const out=[];
+  const now=Date.now();
+  for(let d=6;d>=0;d--){
+    names.forEach((n,idx)=>{
+      const zeal = 0.35 + ((idx*37)%100)/100;
+      const day = now - d*864e5;
+      const push=(action,count,ver)=>out.push({
+        ts:new Date(day + Math.random()*8*36e5),
+        name:n, action, count,
+        list:lists[Math.floor(Math.random()*3)],
+        account:"Acct "+Math.floor(Math.random()*900+100),
+        verified: ver
+      });
+      push("Call attempt", Math.round(6+Math.random()*22*zeal));
+      push("Letter shipped", Math.round(Math.random()*5*zeal));
+      const c=Math.round(Math.random()*5*zeal);
+      if(c) push("Conversation", c);
+      if(Math.random()<.16*zeal) push("Google review",1,Math.random()<.7);
+      if(Math.random()<.13*zeal) push("Referral",1,Math.random()<.6);
+      if(Math.random()<.11*zeal) push("Renewal",1,Math.random()<.75);
+      if(Math.random()<.07*zeal) push("Annual upgrade",1,Math.random()<.5);
+      if(Math.random()<.035*zeal) push("System purchase",1,Math.random()<.5);
+    });
+  }
+  return out;
+}
+
+async function sbGet(path){
+  const key = CONFIG.supabase.anonKey;
+  const headers = { apikey: key };
+  // Legacy anon keys are JWTs and expect a Bearer header too. The newer
+  // sb_publishable_ keys don't — sending one can be rejected.
+  if(key.startsWith("eyJ")) headers.Authorization = "Bearer "+key;
+  const res = await fetch(`${CONFIG.supabase.url}/rest/v1/${path}`, { headers });
+  if(!res.ok) throw new Error(path+" → HTTP "+res.status);
+  return res.json();
+}
+
+async function loadSupabase(){
+  const [standings, feed, prizes] = await Promise.all([
+    sbGet("standings?select=*&order=rank.asc"),
+    sbGet("activity_feed?select=*&limit=9"),
+    sbGet("prizes?select=*&order=token_cost.desc,sort_order.asc")
+  ]);
+
+  const people = standings.map(s=>({
+    name: s.display_name,
+    pts: s.points,
+    pending: s.pending_points,
+    letters: s.letters, calls: s.calls, convos: s.convos,
+    wins: s.wins, winsVerified: s.wins_verified,
+    today: s.points_today,
+    tokens: s.tokens,
+    rank: s.rank,
+    competing: s.competing !== false,
+    spent: s.tokens_spent || 0,
+    delta: lastRank[s.display_name]===undefined ? 0 : lastRank[s.display_name]-s.rank
+  }));
+
+  MODEL = {
+    people,
+    feed: feed.map(f=>({
+      ts:new Date(f.created_at), name:f.display_name, action:f.action,
+      count:f.qty, verified:f.verified, isWin:f.track==="wins"
+    })),
+    shelf: prizes.map(p=>({ name:p.name, cost:p.token_cost, sold:!!p.claimed_by }))
+  };
+
+  setStatus(`Live · <b>${people.length}</b> players · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}`);
+  draw();
+}
+
+async function loadSheet(){
+  const res = await fetch(CONFIG.csvUrl + (CONFIG.csvUrl.includes("?")?"&":"?") + "cb=" + Date.now());
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  rows = normalize(parseCSV(await res.text()));
+  MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig() };
+  setStatus(`Live · <b>${rows.length}</b> entries · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}`);
+  draw();
+}
+
+async function load(){
+  try{
+    if(CONFIG.source==="supabase" && CONFIG.supabase.url){ await loadSupabase(); return; }
+    if(CONFIG.source==="sheet" && CONFIG.csvUrl){ await loadSheet(); return; }
+    if(!rows.length) rows = demoRows();
+    MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig() };
+    setStatus('<b>Demo data</b> — set source and credentials in CONFIG to go live', true);
+    draw();
+  }catch(err){
+    setStatus(`Can't reach the data source — ${err.message}`, true);
+    if(MODEL.people.length) draw();
+  }
+}
+
+$("brandTitle").textContent = CONFIG.title;
+document.title = CONFIG.title;
+load();
+setInterval(load, CONFIG.refreshSeconds*1000);
+setInterval(()=>$("mClock").textContent = new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}), 30000);
+</script>
+</body>
+</html>
