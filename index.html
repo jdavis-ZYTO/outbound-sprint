@@ -850,11 +850,16 @@ function demoRows(){
 
 async function sbGet(path){
   const key = CONFIG.supabase.anonKey;
-  const headers = { apikey: key };
+  const headers = { apikey: key, "Cache-Control":"no-cache" };
   // Legacy anon keys are JWTs and expect a Bearer header too. The newer
   // sb_publishable_ keys don't — sending one can be rejected.
   if(key.startsWith("eyJ")) headers.Authorization = "Bearer "+key;
-  const res = await fetch(`${CONFIG.supabase.url}/rest/v1/${path}`, { headers });
+  // This screen runs unattended for weeks. A cached response would freeze the
+  // board on stale numbers with no one there to notice.
+  const bust = (path.includes("?") ? "&" : "?") + "cb=" + Date.now();
+  const res = await fetch(`${CONFIG.supabase.url}/rest/v1/${path}${bust}`, {
+    headers, cache:"no-store"
+  });
   if(!res.ok) throw new Error(path+" → HTTP "+res.status);
   return res.json();
 }
