@@ -527,9 +527,15 @@ async function fetchAll(){
     return;
   }
   const [standings, prizes] = await Promise.all([
-    sb("standings?select=*&order=rank.asc"),
+    sb("standings?select=*"),
     sb("prizes?select=*&order=token_cost.desc,sort_order.asc")
   ]);
+  standings.sort((a,b)=>{
+    if(a.rank==null && b.rank==null) return 0;
+    if(a.rank==null) return 1;      // pacesetter sits below the ladder
+    if(b.rank==null) return -1;
+    return a.rank-b.rank;
+  });
   STATE.people = standings;
   STATE.shelf  = prizes.map(z=>({name:z.name,cost:z.token_cost,sold:!!z.claimed_by}));
   STATE.mine   = ME ? await sb(`entries?select=*&participant_id=eq.${ME.id}&order=created_at.desc&limit=12`) : [];

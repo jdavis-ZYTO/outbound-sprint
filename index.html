@@ -900,7 +900,7 @@ async function loadSupabase(){
   // standings should still render. Bundling them meant one bad query blanked
   // the whole screen.
   const [sRes, fRes, pRes] = await Promise.allSettled([
-    sbGet("standings?select=*&order=rank.asc"),
+    sbGet("standings?select=*"),
     sbGet("activity_feed?select=*&limit=9"),
     sbGet("prizes?select=*&order=token_cost.desc,sort_order.asc")
   ]);
@@ -912,6 +912,16 @@ async function loadSupabase(){
   const standings = sRes.value || [];
   const feed      = fRes.status === "fulfilled" ? (fRes.value || []) : [];
   const prizes    = pRes.status === "fulfilled" ? (pRes.value || []) : [];
+
+  // Sorted here rather than server-side: ordering by rank was rejected with a
+  // 400, and fourteen rows cost nothing to sort in the browser. Nulls (the
+  // pacesetter) go last.
+  standings.sort((a,b)=>{
+    if(a.rank==null && b.rank==null) return 0;
+    if(a.rank==null) return 1;
+    if(b.rank==null) return -1;
+    return a.rank-b.rank;
+  });
 
   const people = standings.map(s=>({
     name: s.display_name,
