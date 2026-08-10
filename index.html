@@ -13,14 +13,19 @@
    Palette: ink ground, manila card stock, postal red, dial teal
    ============================================================ */
 :root{
-  --ink:#12202B;
-  --ink-2:#1B2E3C;
-  --ink-3:#25404F;
-  --manila:#E8D5A9;
-  --paper:#F5EFE3;
-  --postal:#D8412F;
-  --dial:#4FB8A8;
-  --dim:#7D95A3;
+  /* Daylight palette. Names kept from the dark build so every rule that
+     referenced them still resolves — only the meaning changed. */
+  --ink:#FFFFFF;        /* page */
+  --ink-2:#F4F7FB;      /* card surface */
+  --ink-3:#DCE4EF;      /* rules and rails */
+  --paper:#0D1F33;      /* primary text */
+  --dim:#68798E;        /* secondary text */
+  --manila:#B8690A;     /* brand accent + letters track */
+  --postal:#E02318;     /* outcomes, urgency, rank 1 */
+  --dial:#00937C;       /* calls */
+  --violet:#5B45E0;     /* conversations */
+  --rail:#E7ECF4;       /* empty bar track */
+  --shadow:0 1px 2px rgba(13,31,51,.06), 0 6px 18px rgba(13,31,51,.05);
 
   --display:'Oswald',Impact,sans-serif;
   --body:'IBM Plex Sans',system-ui,sans-serif;
@@ -39,14 +44,14 @@ body{
   font-family:var(--body);
   /* faint sorting-facility grid, not decoration: it reads as ledger ruling */
   background-image:
-    repeating-linear-gradient(0deg,transparent 0 39px,rgba(232,213,169,.035) 39px 40px),
-    repeating-linear-gradient(90deg,transparent 0 39px,rgba(232,213,169,.02) 39px 40px);
+    repeating-linear-gradient(0deg,transparent 0 39px,rgba(13,31,51,.035) 39px 40px),
+    repeating-linear-gradient(90deg,transparent 0 39px,rgba(13,31,51,.02) 39px 40px);
 }
 
 /* ---------- frame ---------- */
 .frame{height:100vh;display:flex;flex-direction:column}
 
-.topbar{
+.topbar{box-shadow:0 2px 14px rgba(13,31,51,.07);
   display:flex;align-items:stretch;gap:0;
   border-bottom:3px solid var(--manila);
   background:var(--ink-2);
@@ -118,6 +123,7 @@ body{
 /* ---------- dispatch board rows ---------- */
 .board{flex:1 1 auto;display:flex;flex-direction:column;gap:.5vh;min-height:0}
 .row{
+  box-shadow:var(--shadow);border-radius:3px;
   display:grid;
   grid-template-columns:4.2vw minmax(0,1.1fr) minmax(0,1.5fr) 7vw 6vw;
   align-items:center;gap:calc(var(--pad)*.6);
@@ -126,10 +132,10 @@ body{
   padding:0 calc(var(--pad)*.7);
   flex:1 1 0;min-height:0;
 }
-.row.top{border-left-color:var(--postal);background:#22323E}
+.row.top{border-left-color:var(--postal);background:#FFF4F3;position:relative;overflow:hidden}
 .row.second{border-left-color:var(--manila)}
 .row.third{border-left-color:var(--dial)}
-.row.pace{border-left-color:var(--manila);background:#16252F;
+.row.pace{border-left-color:var(--manila);background:#FFFBF4;
   border-top:2px dashed var(--ink-3);flex:0 0 auto;padding-top:.4vh;padding-bottom:.4vh}
 .row.pace .rank{font-family:var(--data);font-size:clamp(8px,.62vw,14px);
   letter-spacing:.14em;color:var(--manila);line-height:1.1;text-align:center;display:block}
@@ -188,7 +194,7 @@ body{
   font-family:var(--data);font-size:clamp(7px,.52vw,11px);
   letter-spacing:.14em;color:var(--dim);text-transform:uppercase;
 }
-.track .rail{height:clamp(5px,.62vh,10px);background:#0E1A23;overflow:hidden}
+.track .rail{height:clamp(5px,.62vh,10px);background:var(--rail);overflow:hidden;border-radius:99px}
 .track .fill{height:100%;width:0;transition:width .8s cubic-bezier(.2,.8,.25,1)}
 .track .num{
   font-family:var(--data);font-size:clamp(8px,.6vw,13px);
@@ -196,7 +202,7 @@ body{
 }
 .fill.letters{background:var(--manila)}
 .fill.calls{background:var(--dial)}
-.fill.convos{background:#8FD0C4}
+.fill.convos{background:var(--violet)}
 .fill.wins{background:var(--postal)}
 
 .pts{
@@ -229,12 +235,13 @@ body{
 /* ---------- tracks panel ---------- */
 .railgrid{flex:1 1 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:var(--pad);min-height:0}
 .railcard{
-  background:var(--ink-2);border-top:3px solid var(--ink-3);
+  background:var(--ink-2);border-top:4px solid var(--ink-3);
+  box-shadow:var(--shadow);border-radius:3px;
   padding:calc(var(--pad)*.8);display:flex;flex-direction:column;min-height:0;
 }
 .railcard.letters{border-top-color:var(--manila)}
 .railcard.calls{border-top-color:var(--dial)}
-.railcard.convos{border-top-color:#8FD0C4}
+.railcard.convos{border-top-color:var(--violet)}
 .railcard.wins{border-top-color:var(--postal)}
 .railcard .cap{
   font-family:var(--data);font-size:clamp(9px,.68vw,15px);
@@ -246,20 +253,21 @@ body{
 }
 .railcard.letters .tot{color:var(--manila)}
 .railcard.calls .tot{color:var(--dial)}
-.railcard.convos .tot{color:#8FD0C4}
+.railcard.convos .tot{color:var(--violet)}
 .railcard.wins .tot{color:var(--postal)}
 .railcard .goalline{
   font-family:var(--data);font-size:clamp(9px,.65vw,14px);color:var(--dim);
   margin-bottom:.5em;
 }
-.seg{display:flex;height:clamp(10px,1.5vh,24px);background:#0E1A23;margin-top:auto}
-.seg span{display:block;height:100%;border-right:1px solid var(--ink)}
+.seg{display:flex;height:clamp(10px,1.5vh,24px);background:var(--rail);margin-top:auto;border-radius:99px;overflow:hidden}
+.seg span{display:block;height:100%;border-right:2px solid #fff}
 
 /* ---------- shelf ---------- */
 .shelf{flex:1 1 auto;display:grid;gap:calc(var(--pad)*.55);min-height:0;
   grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr}
 .item{
   background:var(--ink-2);padding:calc(var(--pad)*.7);
+  box-shadow:var(--shadow);border-radius:3px;
   display:flex;flex-direction:column;justify-content:space-between;
   position:relative;overflow:hidden;border-left:3px solid var(--ink-3);
 }
@@ -267,10 +275,14 @@ body{
 /* The name is what people are chasing, so it leads. */
 .item .nm2{
   font-family:var(--display);font-weight:500;text-transform:uppercase;
-  letter-spacing:.03em;line-height:1.1;
-  font-size:clamp(13px,1.35vw,30px);color:var(--paper);
+  letter-spacing:.03em;line-height:1.1;flex:0 0 auto;
+  font-size:clamp(12px,1.2vw,26px);color:var(--paper);
 }
-.item .itfoot{display:flex;align-items:baseline;gap:.4em;margin-top:.5em}
+.item .shot{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;
+  background:#fff;border-radius:2px;margin-bottom:.5em;overflow:hidden}
+.item .shot img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.item.gone .shot{filter:grayscale(1)}
+.item .itfoot{display:flex;align-items:baseline;gap:.4em;margin-top:auto}
 .item .cost{
   font-family:var(--display);font-weight:700;color:var(--manila);
   font-size:clamp(18px,1.9vw,40px);line-height:1;
@@ -298,7 +310,7 @@ body{
   position:absolute;bottom:calc(var(--pad)*.5);right:calc(var(--pad)*.5);
   color:var(--postal);font-family:var(--display);font-weight:700;
   letter-spacing:.1em;font-size:clamp(9px,.72vw,16px);white-space:nowrap;
-  background:var(--ink-2);padding:.1em .35em;z-index:2;
+  background:#fff;padding:.1em .35em;z-index:2;
 }
 
 /* ---------- today ---------- */
@@ -306,6 +318,7 @@ body{
 .moverlist{display:flex;flex-direction:column;gap:.6vh;min-height:0}
 .mover{
   background:var(--ink-2);padding:calc(var(--pad)*.55) calc(var(--pad)*.75);
+  box-shadow:var(--shadow);border-radius:3px;
   display:flex;align-items:center;gap:.8em;flex:1 1 0;min-height:0;
   border-left:3px solid var(--dial);
 }
@@ -314,13 +327,13 @@ body{
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mover .mp{margin-left:auto;font-family:var(--display);font-weight:700;
   font-size:clamp(18px,2vw,42px);color:var(--dial);font-variant-numeric:tabular-nums}
-.tickerwrap{background:var(--ink-2);padding:calc(var(--pad)*.75);
-  display:flex;flex-direction:column;min-height:0;border-top:3px solid var(--manila)}
+.tickerwrap{background:var(--ink-2);padding:calc(var(--pad)*.75);box-shadow:var(--shadow);border-radius:3px;
+  display:flex;flex-direction:column;min-height:0;border-top:4px solid var(--manila)}
 .tickerwrap .cap{font-family:var(--data);font-size:clamp(9px,.68vw,15px);
   letter-spacing:.2em;color:var(--dim);text-transform:uppercase;margin-bottom:.7em}
 .tick{flex:1 1 auto;overflow:hidden;display:flex;flex-direction:column;gap:.55vh}
 .tickrow{display:flex;gap:.7em;align-items:baseline;font-family:var(--data);
-  font-size:clamp(10px,.85vw,19px);border-bottom:1px dotted var(--ink-3);padding-bottom:.4em}
+  font-size:clamp(10px,.85vw,19px);border-bottom:1px solid var(--ink-3);padding-bottom:.4em}
 .tickrow .t{color:var(--dim);font-size:.8em}
 .tickrow .a{color:var(--manila);margin-left:auto;white-space:nowrap}
 .tickrow .a.win{color:var(--postal);font-weight:600}
@@ -338,6 +351,63 @@ body{
   letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
 .status b{color:var(--dial);font-weight:400}
 .status.warn b{color:var(--postal)}
+
+/* ============ MOTION ============
+   Three moments only: rows arriving, a number changing, and a rank moving.
+   Everything else stays still so those three read as events. */
+
+@keyframes rowIn{
+  from{opacity:0;transform:translateY(10px)}
+  to  {opacity:1;transform:none}
+}
+.panel.live .board .row{animation:rowIn .42s cubic-bezier(.2,.8,.25,1) both}
+.panel.live .board .row:nth-child(1){animation-delay:.02s}
+.panel.live .board .row:nth-child(2){animation-delay:.05s}
+.panel.live .board .row:nth-child(3){animation-delay:.08s}
+.panel.live .board .row:nth-child(4){animation-delay:.11s}
+.panel.live .board .row:nth-child(5){animation-delay:.14s}
+.panel.live .board .row:nth-child(6){animation-delay:.17s}
+.panel.live .board .row:nth-child(7){animation-delay:.20s}
+.panel.live .board .row:nth-child(8){animation-delay:.23s}
+.panel.live .board .row:nth-child(9){animation-delay:.26s}
+.panel.live .board .row:nth-child(10){animation-delay:.29s}
+.panel.live .board .row:nth-child(11){animation-delay:.32s}
+.panel.live .board .row:nth-child(12){animation-delay:.35s}
+.panel.live .board .row:nth-child(13){animation-delay:.38s}
+.panel.live .board .row:nth-child(14){animation-delay:.41s}
+.panel.live .railcard,
+.panel.live .item,
+.panel.live .mover{animation:rowIn .4s cubic-bezier(.2,.8,.25,1) both}
+.panel.live .railcard:nth-child(2){animation-delay:.06s}
+.panel.live .railcard:nth-child(3){animation-delay:.12s}
+.panel.live .railcard:nth-child(4){animation-delay:.18s}
+
+/* A light sweep across the leader — the one piece of pure showmanship. */
+@keyframes sweep{
+  0%  {transform:translateX(-120%)}
+  55% {transform:translateX(120%)}
+  100%{transform:translateX(120%)}
+}
+.row.top::after{
+  content:"";position:absolute;inset:0 auto 0 0;width:38%;
+  background:linear-gradient(100deg,transparent,rgba(224,35,24,.10),transparent);
+  animation:sweep 5.5s ease-in-out infinite;pointer-events:none;
+}
+
+/* Somebody just moved. */
+@keyframes bump{
+  0%{background-color:rgba(0,147,124,.22)}
+  100%{background-color:transparent}
+}
+.row.moved{animation:rowIn .42s cubic-bezier(.2,.8,.25,1) both, bump 2.2s ease-out .3s}
+.delta.up,.delta.down{display:inline-block}
+@keyframes nudgeUp{0%,100%{transform:translateY(0)}40%{transform:translateY(-3px)}}
+@keyframes nudgeDn{0%,100%{transform:translateY(0)}40%{transform:translateY(3px)}}
+.row.moved .delta.up{animation:nudgeUp .9s ease-in-out 2}
+.row.moved .delta.down{animation:nudgeDn .9s ease-in-out 2}
+
+/* Bars grow rather than snap. */
+.track .fill,.trkrow .bar b{transform-origin:left center}
 
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
@@ -673,7 +743,7 @@ function renderBoard(people){
       : `<div class="stamp empty"><span class="sm">${p.pending?"CLEARING":"NO WINS<br>YET"}</span></div>`;
     const spent = p.spent ? ` <span class="spent">(${p.spent} spent)</span>` : "";
     return `
-    <div class="row ${cls}">
+    <div class="row ${cls} ${p.delta?"moved":""}">
       <div class="rank">${p.rank}${d}</div>
       <div class="who">
         <div class="nm">${p.name}</div>
@@ -681,7 +751,7 @@ function renderBoard(people){
       </div>
       ${tracks(p)}
       <div>
-        <div class="pts">${p.pts}</div>
+        <div class="pts" data-count="${p.pts}">${p.pts}</div>
         <div class="pend ${p.pending?"":"none"}">+${p.pending} pending</div>
       </div>
       ${stamp}
@@ -698,7 +768,7 @@ function renderBoard(people){
       </div>
       ${tracks(p)}
       <div>
-        <div class="pts">${p.pts}</div>
+        <div class="pts" data-count="${p.pts}">${p.pts}</div>
         <div class="pend ${p.pending?"":"none"}">+${p.pending} pending</div>
       </div>
       <div class="stamp empty"><span class="sm">NO<br>PRIZES</span></div>
@@ -761,6 +831,16 @@ function groupShelf(shelf){
   return [...map.values()].sort((a,b)=>b.cost-a.cost || a.name.localeCompare(b.name));
 }
 
+/* Photos are matched by filename, derived from the prize name. Drop
+   images/<slug>.jpg into the repo and it appears; if the file isn't there the
+   tile silently falls back to text. No database change, no broken-image icons. */
+function prizeSlug(name){
+  return name.toLowerCase()
+    .replace(/[$+']/g,"")
+    .replace(/[^a-z0-9]+/g,"-")
+    .replace(/^-+|-+$/g,"");
+}
+
 function renderShelf(people, shelf){
   const best = Math.max(0,...people.map(p=>p.tokens));
   const groups = groupShelf(shelf);
@@ -769,6 +849,8 @@ function renderShelf(people, shelf){
     const reach = !gone && best >= g.cost;
     return `<div class="item ${gone?"gone":""} ${reach?"reach":""}">
       ${gone?'<div class="soldout">Claimed</div>':''}
+      <div class="shot"><img src="images/${prizeSlug(g.name)}.jpg" alt=""
+onerror="this.closest('.shot').remove()"></div>
       <div class="nm2">${g.name}</div>
       <div class="itfoot">
         <span class="cost">${g.cost}</span>
@@ -799,6 +881,26 @@ function showBig(title, body){
 }
 function hideBig(){ $("bigmsg").hidden = true; }
 
+/* Numbers tick up to their new value. Static digits on a wall board read as a
+   screenshot; a moving one reads as something happening right now. */
+const COUNTS = new Map();
+function runCounters(scope){
+  scope.querySelectorAll("[data-count]").forEach(el=>{
+    const target = +el.dataset.count;
+    const key = el.closest(".row") ? el.closest(".row").querySelector(".nm").textContent : "x";
+    const from = COUNTS.has(key) ? COUNTS.get(key) : target;
+    COUNTS.set(key, target);
+    if(from === target || Math.abs(target-from) > 400){ el.textContent = target; return; }
+    const start = performance.now(), dur = 900;
+    (function step(now){
+      const t = Math.min(1,(now-start)/dur);
+      const eased = 1-Math.pow(1-t,3);
+      el.textContent = Math.round(from + (target-from)*eased);
+      if(t<1) requestAnimationFrame(step);
+    })(start);
+  });
+}
+
 function draw(){
   const people = MODEL.people;
   renderMeta(people);          // header should never sit on dashes
@@ -814,6 +916,7 @@ function draw(){
   renderTracks(people);
   renderToday(people, MODEL.feed);
   renderShelf(people, MODEL.shelf);
+  runCounters($("boardRows"));
   people.forEach(p=>lastRank[p.name]=p.rank);
 }
 
