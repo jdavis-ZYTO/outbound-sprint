@@ -156,15 +156,27 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
 .shelf{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .pz{background:var(--ink-2);border:1px solid var(--ink-3);padding:13px;position:relative;
   display:flex;flex-direction:column;min-height:98px}
-.pz b{font-family:var(--display);font-weight:700;font-size:26px;color:var(--manila);line-height:1}
-.pz .u{font-family:var(--data);font-size:9px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
-.pz .n{margin-top:auto;font-size:13px;font-weight:600;line-height:1.25}
+.pz .n{font-family:var(--display);font-weight:500;text-transform:uppercase;letter-spacing:.03em;
+  font-size:15px;line-height:1.15;color:var(--paper)}
+.pzfoot{display:flex;align-items:baseline;gap:5px;margin-top:auto;padding-top:8px}
+.pz b{font-family:var(--display);font-weight:700;font-size:22px;color:var(--manila);line-height:1}
+.pz .u{font-family:var(--data);font-size:9px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.pz .lft{margin-left:auto;font-family:var(--data);font-size:9px;letter-spacing:.1em;
+  color:var(--dial);text-transform:uppercase}
 .pz.reach{border-color:var(--dial)}
 .pz.reach .u{color:var(--dial)}
-.pz.gone{opacity:.4}
-.pz .so{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-13deg);
-  border:2px solid var(--postal);color:var(--postal);font-family:var(--display);font-weight:700;
-  letter-spacing:.1em;font-size:14px;padding:2px 8px;white-space:nowrap}
+.pz.gone{opacity:.5}
+.pz.gone .n{color:var(--dim);text-decoration:line-through;
+  text-decoration-color:var(--postal);text-decoration-thickness:2px}
+.pz.gone b{color:var(--dim)}
+.pz.gone::before,
+.pz.gone::after{content:"";position:absolute;left:-8%;right:-8%;top:50%;height:2px;
+  background:var(--postal);opacity:.8;pointer-events:none}
+.pz.gone::before{transform:rotate(24deg)}
+.pz.gone::after{transform:rotate(-24deg)}
+.pz .so{position:absolute;bottom:8px;right:8px;color:var(--postal);
+  font-family:var(--display);font-weight:700;letter-spacing:.08em;font-size:11px;
+  background:var(--ink-2);padding:1px 4px;z-index:2}
 
 /* ---------- name gate ---------- */
 .gate{position:fixed;inset:0;background:var(--ink);z-index:50;display:flex;flex-direction:column;
@@ -690,15 +702,27 @@ function renderMe(){
   $("undoBtn").onclick=undoLast;
 }
 
+function groupShelf(shelf){
+  const map=new Map();
+  for(const it of shelf){
+    const base=it.name.replace(/\s*#\d+\s*$/,"").trim();
+    const key=base+"|"+it.cost;
+    if(!map.has(key)) map.set(key,{name:base,cost:it.cost,total:0,left:0});
+    const g=map.get(key); g.total++; if(!it.sold) g.left++;
+  }
+  return [...map.values()].sort((a,b)=>b.cost-a.cost||a.name.localeCompare(b.name));
+}
+
 function renderShelf(){
   const p=me(), tok=p?p.tokens:0;
-  $("vShelf").innerHTML = `<div class="shelf">${STATE.shelf.map(z=>`
-    <div class="pz ${z.sold?"gone":(tok>=z.cost?"reach":"")}">
-      ${z.sold?'<div class="so">Sold out</div>':''}
-      <b>${z.cost}</b>
-      <div class="u">Tokens${!z.sold&&tok>=z.cost?" · yours":""}</div>
-      <div class="n">${z.name}</div>
-    </div>`).join("")}</div>`;
+  $("vShelf").innerHTML = `<div class="shelf">${groupShelf(STATE.shelf).map(g=>{
+    const gone=g.left===0, reach=!gone&&tok>=g.cost;
+    return `<div class="pz ${gone?"gone":(reach?"reach":"")}">
+      ${gone?'<div class="so">Claimed</div>':''}
+      <div class="n">${g.name}</div>
+      <div class="pzfoot"><b>${g.cost}</b><span class="u">tokens</span>
+        <span class="lft">${gone?"":(g.total>1?g.left+" left":(reach?"yours":""))}</span></div>
+    </div>`;}).join("")}</div>`;
 }
 
 function renderHeader(){
