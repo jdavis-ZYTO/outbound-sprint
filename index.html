@@ -801,10 +801,12 @@ function hideBig(){ $("bigmsg").hidden = true; }
 
 function draw(){
   const people = MODEL.people;
+  renderMeta(people);          // header should never sit on dashes
   if(!people.length){
     showBig(LAST_ERROR ? "Can't reach the scoreboard" : "No one is on the board yet",
             LAST_ERROR
-              ? "The display is running, but it can't load data. Check the internet connection on this device. It will keep retrying."
+              ? "The display is running but the data request failed: " + LAST_ERROR +
+                ". It will keep retrying every minute."
               : "The contest hasn't started, or no entries have been logged. Names appear here as soon as someone logs their first call or letter.");
   } else hideBig();
   renderMeta(people);
@@ -894,11 +896,22 @@ async function sbGet(path){
 }
 
 async function loadSupabase(){
-  const [standings, feed, prizes] = await Promise.all([
+  // Fetched independently: if the prize list or the activity feed fails, the
+  // standings should still render. Bundling them meant one bad query blanked
+  // the whole screen.
+  const [sRes, fRes, pRes] = await Promise.allSettled([
     sbGet("standings?select=*&order=rank.asc"),
     sbGet("activity_feed?select=*&limit=9"),
     sbGet("prizes?select=*&order=token_cost.desc,sort_order.asc")
   ]);
+
+  if(sRes.status === "rejected"){
+    throw new Error(String(sRes.reason && sRes.reason.message || sRes.reason));
+  }
+
+  const standings = sRes.value || [];
+  const feed      = fRes.status === "fulfilled" ? (fRes.value || []) : [];
+  const prizes    = pRes.status === "fulfilled" ? (pRes.value || []) : [];
 
   const people = standings.map(s=>({
     name: s.display_name,
@@ -923,7 +936,8 @@ async function loadSupabase(){
     shelf: prizes.map(p=>({ name:p.name, cost:p.token_cost, sold:!!p.claimed_by }))
   };
 
-  setStatus(`Live · <b>${people.length}</b> players · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}`);
+  const partial = (fRes.status==="rejected" || pRes.status==="rejected") ? " · some panels unavailable" : "";
+  setStatus(`Live · <b>${people.length}</b> players · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}${partial}`, !!partial);
   draw();
 }
 
