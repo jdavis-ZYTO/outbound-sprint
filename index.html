@@ -85,6 +85,14 @@ body{
 
 /* ---------- stage ---------- */
 .stage{flex:1 1 auto;position:relative;overflow:hidden}
+.bigmsg{position:absolute;inset:0;z-index:10;background:var(--ink);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:var(--pad);gap:.6em}
+.bigmsg[hidden]{display:none}
+.bigmsg .bm1{font-family:var(--display);font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;font-size:clamp(22px,3vw,64px);color:var(--manila);line-height:1.1}
+.bigmsg .bm2{font-family:var(--body);font-size:clamp(13px,1.1vw,26px);color:var(--dim);
+  max-width:34em;line-height:1.4}
 .panel{
   position:absolute;inset:0;padding:var(--pad);
   display:flex;flex-direction:column;
@@ -359,6 +367,12 @@ body{
   </header>
 
   <main class="stage">
+
+    <div class="bigmsg" id="bigmsg" hidden>
+      <div class="bm1" id="bmTitle"></div>
+      <div class="bm2" id="bmBody"></div>
+    </div>
+
 
     <section class="panel" id="pBoard">
       <div class="panelhead"><h2>Standings</h2><span class="sub">Points · tokens · verified outcomes</span></div>
@@ -778,8 +792,21 @@ function renderMeta(people){
   $("mClock").textContent = new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
 }
 
+function showBig(title, body){
+  $("bmTitle").textContent = title;
+  $("bmBody").textContent  = body;
+  $("bigmsg").hidden = false;
+}
+function hideBig(){ $("bigmsg").hidden = true; }
+
 function draw(){
   const people = MODEL.people;
+  if(!people.length){
+    showBig(LAST_ERROR ? "Can't reach the scoreboard" : "No one is on the board yet",
+            LAST_ERROR
+              ? "The display is running, but it can't load data. Check the internet connection on this device. It will keep retrying."
+              : "The contest hasn't started, or no entries have been logged. Names appear here as soon as someone logs their first call or letter.");
+  } else hideBig();
   renderMeta(people);
   renderBoard(people);
   renderTracks(people);
@@ -812,6 +839,8 @@ document.querySelector(".stage").addEventListener("click", rotate);
 /* ============================================================
    LOAD
    ============================================================ */
+let LAST_ERROR = null;
+
 function setStatus(text, warn){
   const el=$("status");
   el.className = "status"+(warn?" warn":"");
@@ -909,15 +938,16 @@ async function loadSheet(){
 
 async function load(){
   try{
-    if(CONFIG.source==="supabase" && CONFIG.supabase.url){ await loadSupabase(); return; }
+    if(CONFIG.source==="supabase" && CONFIG.supabase.url){ await loadSupabase(); LAST_ERROR=null; return; }
     if(CONFIG.source==="sheet" && CONFIG.csvUrl){ await loadSheet(); return; }
     if(!rows.length) rows = demoRows();
     MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig() };
     setStatus('<b>Demo data</b> — set source and credentials in CONFIG to go live', true);
     draw();
   }catch(err){
-    setStatus(`Can't reach the data source — ${err.message}`, true);
-    if(MODEL.people.length) draw();
+    LAST_ERROR = err.message || "unknown error";
+    setStatus(`Can't reach the data source — ${LAST_ERROR}`, true);
+    draw();   // always render something; a blank screen explains nothing
   }
 }
 
