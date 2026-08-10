@@ -431,8 +431,8 @@ body{
 
   <header class="topbar">
     <div class="brand">
-      <div class="eyebrow">Outbound Sprint</div>
-      <h1 id="brandTitle">Dispatch Board</h1>
+      <div class="eyebrow">ZYTO / Visera</div>
+      <h1 id="brandTitle">Outbound Sprint</h1>
     </div>
     <div class="meta">
       <div class="metacell"><div class="k">Day</div><div class="v" id="mDay">—</div></div>
@@ -489,7 +489,7 @@ body{
    CONFIG — edit this block only
    ============================================================ */
 const CONFIG = {
-  title: "Dispatch Board",
+  title: "Outbound Sprint",
 
   // "demo" | "sheet" | "supabase"
   source: "supabase",
@@ -504,8 +504,8 @@ const CONFIG = {
   // source: "sheet" — File > Share > Publish to web > entire sheet > CSV.
   csvUrl: "",
 
-  start: "2026-08-17",   // first day of the contest (YYYY-MM-DD)
-  end:   "2026-08-28",   // last day
+  start: "2026-08-11",   // first day of the contest (YYYY-MM-DD)
+  end:   "2026-08-20",   // last day
 
   refreshSeconds: 60,
   rotateSeconds: 20,
@@ -995,7 +995,7 @@ document.querySelector(".stage").addEventListener("click", rotate);
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v8";
+const BUILD = "v11";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){

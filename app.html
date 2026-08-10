@@ -165,7 +165,7 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
   display:flex;flex-direction:column;min-height:98px;box-shadow:var(--shadow);border-radius:4px}
 .pz .n{font-family:var(--display);font-weight:500;text-transform:uppercase;letter-spacing:.03em;
   font-size:15px;line-height:1.15;color:var(--paper)}
-.pz .shot{height:78px;display:flex;align-items:center;justify-content:center;
+.pz .shot{height:90px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
   background:#fff;border-radius:3px;margin-bottom:8px;overflow:hidden}
 .pz .shot img{max-width:100%;max-height:100%;object-fit:contain;display:block}
 .pz.gone .shot{filter:grayscale(1)}
@@ -220,6 +220,8 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
 .undo:disabled{opacity:.35}
 .newpin{background:var(--postal);color:#fff;border-radius:4px;padding:12px;margin-top:10px;
   font-family:var(--data);font-size:14px;letter-spacing:.06em}
+.gatebrand{font-family:var(--data);font-size:10px;letter-spacing:.24em;
+  color:var(--dial);text-transform:uppercase;margin-bottom:10px}
 .gate h2{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:26px;
   letter-spacing:.04em;color:var(--manila);margin-bottom:6px}
 .gate p{color:var(--dim);font-size:14px;margin-bottom:20px}
@@ -318,6 +320,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
 
 <div class="gate" id="gate" hidden>
   <div id="gateNames">
+    <div class="gatebrand">ZYTO / Visera Outbound Sprint</div>
     <h2>Who are you?</h2>
     <p>Pick your name. This device will remember it — you won't sign in again.</p>
     <div class="names" id="nameList"></div>
@@ -353,7 +356,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
    CONFIG
    ============================================================ */
 const CONFIG = {
-  title: "Outbound Sprint",
+  title: "ZYTO / Visera Outbound Sprint",
 
   // "demo" runs on fake in-memory data so you can try the whole app
   // before Supabase exists. Switch to "supabase" to go live.
@@ -364,8 +367,8 @@ const CONFIG = {
     anonKey:"sb_publishable_aWggUCj1M0wuU28900VBBA_SgonFeH6"
   },
 
-  start:"2026-08-17",
-  end:"2026-08-28",
+  start:"2026-08-11",
+  end:"2026-08-20",
 
   refreshSeconds: 20,
 
@@ -777,6 +780,35 @@ function nextShot(img){
   img.src = rest[0];
 }
 
+
+/* The exact filenames in the repo. Guessing at extensions turned out to be
+   fragile — .jpg and .jpeg were both in play — so this is the literal list.
+   Anything not here falls back to a slug guess, then to text. */
+const PHOTOS = {
+  "Chirp RPM Big":                    "chirp-rpm-big.jpeg",
+  "Chirp RPM":                        "chirp-rpm.jpeg",
+  "Bose Soundbar":                    "bose-soundbar.jpeg",
+  "Soundcore Bluetooth Speaker":      "soundcore-bluetooth-speaker.jpeg",
+  "Chirp Wheel+ Deep Tissue 2-Pack":  "chirp-wheel-deep-tissue-2-pack.jpeg",
+  "Cinemark $50 Gift Card":           "cinemark-50-gift-card.jpg",
+  "Pickleball Bundle":                "pickleball-bundle.jpeg",
+  "Infinity Telescoping Lamp":        "infinity-telescoping-lamp.jpeg",
+  "Ghost Energy 18-Pack":             "ghost-energy-18-pack.jpeg",
+  "Head Lamps":                       "head-lamps.jpeg",
+  "Cascade Camp Chair":               "cascade-camp-chair.jpeg",
+  "Monster Ultra 24-Pack":            "monster-ultra-24-pack.jpeg",
+  "Red Bull Sugar Free 24-Pack":      "red-bull-sugar-free-24-pack.jpg",
+  "Cafe Rio $25":                     "cafe-rio-25.jpeg",
+  "R&R BBQ $25":                      "r-r-bbq-25.jpeg",
+  "Coldstone $25":                    "coldstone-25.jpeg",
+  "Chubby's $25":                     "chubbys-25.jpeg",
+  "Golf sleeve (3 balls)":            "golf-sleeve-3-balls.jpeg"
+};
+
+function photoFor(name){
+  return "images/" + (PHOTOS[name] || prizeSlug(name) + ".jpeg");
+}
+
 function prizeSlug(name){
   return name.toLowerCase()
     .replace(/[$+']/g,"")
@@ -790,9 +822,7 @@ function renderShelf(){
     const gone=g.left===0, reach=!gone&&tok>=g.cost;
     return `<div class="pz ${gone?"gone":(reach?"reach":"")}">
       ${gone?'<div class="so">Claimed</div>':''}
-      <div class="shot"><img src="images/${prizeSlug(g.name)}.jpg" alt=""
-        data-tries="images/${prizeSlug(g.name)}.jpeg|images/${prizeSlug(g.name)}.png|images/${prizeSlug(g.name)}.JPG"
-        onerror="nextShot(this)"></div>
+      <div class="shot"><img src="${photoFor(g.name)}" alt="" onerror="nextShot(this)"></div>
       <div class="n">${g.name}</div>
       <div class="pzfoot"><b>${g.cost}</b><span class="u">tokens</span>
         <span class="lft">${gone?"":(g.total>1?g.left+" left":(reach?"yours":""))}</span></div>
@@ -803,7 +833,7 @@ function renderHeader(){
   const p=me();
   const who=$("whoami");
   if(ME){ who.textContent=ME.display_name; who.classList.add("named"); }
-  else  { who.textContent=CONFIG.title;    who.classList.remove("named"); }
+  else  { who.textContent="Outbound Sprint"; who.classList.remove("named"); }
   const pacer = p && p.competing===false;
   $("myRank").textContent = p ? (pacer?"◆":p.rank) : "—";
   $("myRankLbl").textContent = p ? `${p.points} pts` : "Your rank";
