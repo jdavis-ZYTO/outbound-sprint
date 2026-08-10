@@ -268,13 +268,13 @@ body{
 .item{
   background:var(--ink-2);padding:calc(var(--pad)*.6);
   box-shadow:var(--shadow);border-radius:3px;
-  /* Text left, square photo right. The photo column is sized by the tile's
-     own height via aspect-ratio, so it stays square at any screen size. */
-  display:grid;grid-template-columns:1fr auto;gap:calc(var(--pad)*.5);
-  align-items:stretch;
+  /* Text left, square photo right. The square is sized from the viewport
+     rather than from the tile's height — deriving it from the row height
+     lets some browsers collapse it to nothing. */
+  display:flex;align-items:center;gap:calc(var(--pad)*.5);
   position:relative;overflow:hidden;border-left:3px solid var(--ink-3);
 }
-.item .txt{display:flex;flex-direction:column;justify-content:center;
+.item .txt{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;
   gap:.35em;min-width:0}
 .item.reach{border-left-color:var(--dial)}
 /* The name is what people are chasing, so it leads. */
@@ -283,8 +283,8 @@ body{
   letter-spacing:.03em;line-height:1.1;
   font-size:clamp(13px,1.3vw,28px);color:var(--paper);
 }
-.item .shot{align-self:stretch;aspect-ratio:1/1;max-width:42%;
-  background:#fff;border-radius:2px;overflow:hidden;
+.item .shot{flex:0 0 auto;height:clamp(46px,8.4vh,150px);width:clamp(46px,8.4vh,150px);
+  background:#fff;border-radius:3px;overflow:hidden;
   display:flex;align-items:center;justify-content:center}
 .item .shot img{width:100%;height:100%;object-fit:cover;display:block}
 .item.gone .shot{filter:grayscale(1)}
@@ -995,6 +995,7 @@ document.querySelector(".stage").addEventListener("click", rotate);
 /* ============================================================
    LOAD
    ============================================================ */
+const BUILD = "v8";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
@@ -1101,7 +1102,7 @@ async function loadSupabase(){
   };
 
   const partial = (fRes.status==="rejected" || pRes.status==="rejected") ? " · some panels unavailable" : "";
-  setStatus(`Live · <b>${people.length}</b> players · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}${partial}`, !!partial);
+  setStatus(`Live · <b>${people.length}</b> players · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}${partial} · ${BUILD}`, !!partial);
   draw();
 }
 
