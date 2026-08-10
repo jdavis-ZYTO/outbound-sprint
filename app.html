@@ -413,12 +413,13 @@ async function sb(path, opts={}){
   // Ask Supabase not to echo the row back, so a write returns a bare 204.
   if(opts.method === "POST" && !path.startsWith("rpc/")) headers.Prefer = "return=minimal";
 
-  // Reads get a cache-buster; writes don't need one.
+  // No cache-busting query param: PostgREST reads any unknown parameter as a
+  // column filter, so "&cb=123" becomes "where cb = 123" and returns 400.
   const isRead = !opts.method || opts.method === "GET";
-  const url = `${CONFIG.supabase.url}/rest/v1/${path}` +
-    (isRead ? (path.includes("?") ? "&" : "?") + "cb=" + Date.now() : "");
+  if(isRead) headers["Cache-Control"] = "no-cache";
 
-  const res = await fetch(url, { ...opts, headers, cache: isRead ? "no-store" : "default" });
+  const res = await fetch(`${CONFIG.supabase.url}/rest/v1/${path}`,
+    { ...opts, headers, cache: isRead ? "no-store" : "default" });
   if(!res.ok) throw new Error("HTTP "+res.status);
 
   // A successful write can come back 201/204 with no body at all. Parsing that
