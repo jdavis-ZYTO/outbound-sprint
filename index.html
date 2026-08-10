@@ -126,6 +126,28 @@ body{
 .row.pace .rank{font-family:var(--data);font-size:clamp(8px,.62vw,14px);
   letter-spacing:.14em;color:var(--manila);line-height:1.1;text-align:center;display:block}
 
+/* 11-14 rows: shrink type and chrome so nobody falls off the screen. */
+.board.dense{gap:.35vh}
+.board.dense .row{padding:0 calc(var(--pad)*.5)}
+.board.dense .rank{font-size:clamp(16px,1.9vw,38px)}
+.board.dense .who .nm{font-size:clamp(13px,1.35vw,28px)}
+.board.dense .who .tok{font-size:clamp(8px,.55vw,12px)}
+.board.dense .pts{font-size:clamp(19px,2.2vw,46px)}
+.board.dense .track .rail{height:clamp(4px,.45vh,8px)}
+.board.dense .tracks{gap:.2vh}
+.board.dense .track .lbl{font-size:clamp(6px,.44vw,10px)}
+.board.dense .track .num{font-size:clamp(7px,.5vw,11px)}
+.board.dense .stamp{width:clamp(30px,3.2vw,64px);border-width:2px}
+.board.dense .stamp .big{font-size:clamp(11px,1.1vw,24px)}
+.board.dense .stamp .sm{font-size:clamp(5px,.4vw,9px)}
+
+/* 15+: drop the track bars entirely — rank, name and points still read. */
+.board.denser .tracks{display:none}
+.board.denser .row{grid-template-columns:4.2vw minmax(0,1fr) 7vw 5vw}
+.board.denser .rank{font-size:clamp(14px,1.6vw,32px)}
+.board.denser .who .nm{font-size:clamp(12px,1.2vw,25px)}
+.board.denser .pts{font-size:clamp(17px,1.9vw,40px)}
+
 .rank{
   font-family:var(--display);font-weight:700;
   font-size:clamp(20px,2.5vw,52px);color:var(--dim);
@@ -226,29 +248,49 @@ body{
 .seg span{display:block;height:100%;border-right:1px solid var(--ink)}
 
 /* ---------- shelf ---------- */
-.shelf{flex:1 1 auto;display:grid;gap:calc(var(--pad)*.7);min-height:0;
-  grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr}
+.shelf{flex:1 1 auto;display:grid;gap:calc(var(--pad)*.55);min-height:0;
+  grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr}
 .item{
-  background:var(--ink-2);padding:calc(var(--pad)*.75);
-  display:flex;flex-direction:column;position:relative;overflow:hidden;
-  border:1px solid var(--ink-3);
+  background:var(--ink-2);padding:calc(var(--pad)*.7);
+  display:flex;flex-direction:column;justify-content:space-between;
+  position:relative;overflow:hidden;border-left:3px solid var(--ink-3);
 }
+.item.reach{border-left-color:var(--dial)}
+/* The name is what people are chasing, so it leads. */
+.item .nm2{
+  font-family:var(--display);font-weight:500;text-transform:uppercase;
+  letter-spacing:.03em;line-height:1.1;
+  font-size:clamp(13px,1.35vw,30px);color:var(--paper);
+}
+.item .itfoot{display:flex;align-items:baseline;gap:.4em;margin-top:.5em}
 .item .cost{
   font-family:var(--display);font-weight:700;color:var(--manila);
-  font-size:clamp(22px,2.6vw,54px);line-height:1;
+  font-size:clamp(18px,1.9vw,40px);line-height:1;
 }
-.item .costlbl{font-family:var(--data);font-size:clamp(8px,.55vw,12px);color:var(--dim);letter-spacing:.18em}
-.item .nm2{
-  font-family:var(--body);font-weight:600;margin-top:auto;
-  font-size:clamp(11px,.95vw,21px);line-height:1.2;
+.item .costlbl{font-family:var(--data);font-size:clamp(8px,.55vw,12px);
+  color:var(--dim);letter-spacing:.18em;text-transform:uppercase}
+.item .left{margin-left:auto;font-family:var(--data);
+  font-size:clamp(9px,.62vw,14px);letter-spacing:.1em;color:var(--dial);
+  text-transform:uppercase}
+.item.gone{opacity:.5}
+.item.gone .nm2{color:var(--dim);text-decoration:line-through;
+  text-decoration-color:var(--postal);text-decoration-thickness:2px}
+.item.gone .cost{color:var(--dim)}
+
+/* A struck-through name reads at arm's length; the X reads across the room. */
+.item.gone::before,
+.item.gone::after{
+  content:"";position:absolute;left:-10%;right:-10%;top:50%;height:3px;
+  background:var(--postal);opacity:.85;pointer-events:none;
 }
-.item.gone{opacity:.4}
+.item.gone::before{transform:rotate(21deg)}
+.item.gone::after{transform:rotate(-21deg)}
+
 .item.gone .soldout{
-  position:absolute;top:50%;left:50%;
-  transform:translate(-50%,-50%) rotate(-14deg);
-  border:3px solid var(--postal);color:var(--postal);
-  font-family:var(--display);font-weight:700;letter-spacing:.12em;
-  font-size:clamp(14px,1.5vw,32px);padding:.14em .5em;white-space:nowrap;
+  position:absolute;bottom:calc(var(--pad)*.5);right:calc(var(--pad)*.5);
+  color:var(--postal);font-family:var(--display);font-weight:700;
+  letter-spacing:.1em;font-size:clamp(9px,.72vw,16px);white-space:nowrap;
+  background:var(--ink-2);padding:.1em .35em;z-index:2;
 }
 
 /* ---------- today ---------- */
@@ -600,7 +642,14 @@ function renderBoard(people){
   const racing = people.filter(p=>p.competing!==false);
   const pace   = people.filter(p=>p.competing===false);
 
-  const rows = racing.slice(0, pace.length?9:10).map(p=>{
+  // Everyone appears. Rows tighten as the roster grows — a leaderboard that
+  // hides people is worse than one that's slightly smaller.
+  const board = $("boardRows");
+  const total = racing.length + pace.length;
+  board.classList.toggle("dense",  total > 10);
+  board.classList.toggle("denser", total > 14);
+
+  const rows = racing.map(p=>{
     const cls = p.rank===1?"top":p.rank===2?"second":p.rank===3?"third":"";
     const d = p.delta>0?`<span class="delta up">▲${p.delta}</span>`
             : p.delta<0?`<span class="delta down">▼${-p.delta}</span>`
@@ -683,15 +732,35 @@ function renderToday(people, feed){
   }).join("") || `<div class="tickrow"><span>Waiting on the first entry</span></div>`;
 }
 
+/* Duplicates are numbered ("$25 gift card #3"). Collapse them back into one
+   row with a count, so the shelf reads as a dozen things rather than forty. */
+function groupShelf(shelf){
+  const map = new Map();
+  for(const it of shelf){
+    const base = it.name.replace(/\s*#\d+\s*$/, "").trim();
+    const key = base + "|" + it.cost;
+    if(!map.has(key)) map.set(key, { name:base, cost:it.cost, total:0, left:0 });
+    const g = map.get(key);
+    g.total++;
+    if(!it.sold) g.left++;
+  }
+  return [...map.values()].sort((a,b)=>b.cost-a.cost || a.name.localeCompare(b.name));
+}
+
 function renderShelf(people, shelf){
   const best = Math.max(0,...people.map(p=>p.tokens));
-  $("shelfGrid").innerHTML = shelf.map(it=>{
-    const reach = !it.sold && best>=it.cost;
-    return `<div class="item ${it.sold?"gone":""}">
-      ${it.sold?'<div class="soldout">Sold out</div>':''}
-      <div class="cost">${it.cost}</div>
-      <div class="costlbl">Tokens${reach?" · claimable now":""}</div>
-      <div class="nm2">${it.name}</div>
+  const groups = groupShelf(shelf);
+  $("shelfGrid").innerHTML = groups.map(g=>{
+    const gone  = g.left === 0;
+    const reach = !gone && best >= g.cost;
+    return `<div class="item ${gone?"gone":""} ${reach?"reach":""}">
+      ${gone?'<div class="soldout">Claimed</div>':''}
+      <div class="nm2">${g.name}</div>
+      <div class="itfoot">
+        <span class="cost">${g.cost}</span>
+        <span class="costlbl">tokens</span>
+        <span class="left">${gone ? "" : (g.total>1 ? g.left+" left" : (reach?"claimable":""))}</span>
+      </div>
     </div>`;
   }).join("");
 }
