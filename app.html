@@ -762,6 +762,21 @@ function groupShelf(shelf){
   return [...map.values()].sort((a,b)=>b.cost-a.cost||a.name.localeCompare(b.name));
 }
 
+
+/* Photo filenames come from people's phones and Macs, which disagree about
+   .jpg vs .jpeg. Try each extension in turn; when they're all exhausted the
+   frame removes itself so there's never a broken-image icon. */
+function nextShot(img){
+  const rest = (img.dataset.tries || "").split("|").filter(Boolean);
+  if(!rest.length){
+    const frame = img.closest(".shot");
+    if(frame) frame.remove();
+    return;
+  }
+  img.dataset.tries = rest.slice(1).join("|");
+  img.src = rest[0];
+}
+
 function prizeSlug(name){
   return name.toLowerCase()
     .replace(/[$+']/g,"")
@@ -776,7 +791,8 @@ function renderShelf(){
     return `<div class="pz ${gone?"gone":(reach?"reach":"")}">
       ${gone?'<div class="so">Claimed</div>':''}
       <div class="shot"><img src="images/${prizeSlug(g.name)}.jpg" alt=""
-onerror="this.closest('.shot').remove()"></div>
+        data-tries="images/${prizeSlug(g.name)}.jpeg|images/${prizeSlug(g.name)}.png|images/${prizeSlug(g.name)}.JPG"
+        onerror="nextShot(this)"></div>
       <div class="n">${g.name}</div>
       <div class="pzfoot"><b>${g.cost}</b><span class="u">tokens</span>
         <span class="lft">${gone?"":(g.total>1?g.left+" left":(reach?"yours":""))}</span></div>
