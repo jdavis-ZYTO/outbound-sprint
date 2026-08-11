@@ -606,6 +606,15 @@ const CONFIG = {
   // Outcome announcement: full screen, with sound
   shoutSeconds: 18,
 
+  // The announcer. Leave voiceName empty to auto-pick the best available;
+  // set it to part of a voice name to force one. On the iPad, download the
+  // Enhanced voices first: Settings > Accessibility > Spoken Content >
+  // Voices > English — they sound far better than the defaults.
+  voiceName: "",
+  voicePreference: ["Ava","Samantha","Allison","Serena","Karen","Moira","Daniel","Tessa","Nicky"],
+  voiceRate: 0.92,
+  voicePitch: 0.95,
+
   // Top-of-the-hour takeover
   takeoverSeconds: 14,   // how long it holds the screen
   hourlyFrom: 8,         // don't fire before this hour
@@ -1187,7 +1196,11 @@ function testSound(){
   unlockAudio();
   if(AUDIO_OK){
     fanfare();
-    setTimeout(()=>say("Sound is working"), 1000);
+    setTimeout(()=>{
+      const v = ensureVoice();
+      say("Courtney just logged a referral");
+      if(v) console.log("Announcer voice:", v.name, "| available:", listVoices().join(", "));
+    }, 1000);
     setSoundLabel("Sound on · playing test", "on");
     setTimeout(()=>{
       setSoundLabel(AUDIO_CTX && AUDIO_CTX.state === "running"
@@ -1227,14 +1240,72 @@ function fanfare(){
   tone(196.00, 0.22, 0.9, 0.14, "sine");
 }
 
+/* ---- voice selection ----------------------------------------------
+   The default system voice is flat and robotic. iOS ships several better
+   ones, and the "Enhanced" or "Premium" variants are dramatically better
+   again — but only if they have been downloaded on the device
+   (Settings > Accessibility > Spoken Content > Voices).
+
+   Preference order: an explicitly named voice, then quality-tagged ones,
+   then a shortlist of the better-sounding defaults, then anything English.
+------------------------------------------------------------------- */
+let CHOSEN_VOICE = null;
+
+function pickVoice(){
+  if(!window.speechSynthesis) return null;
+  const all = window.speechSynthesis.getVoices() || [];
+  if(!all.length) return null;
+
+  const en = all.filter(v => /^en/i.test(v.lang));
+  const pool = en.length ? en : all;
+
+  // 1. exactly what the config asked for
+  if(CONFIG.voiceName){
+    const named = pool.find(v => v.name.toLowerCase().includes(CONFIG.voiceName.toLowerCase()));
+    if(named) return named;
+  }
+  // 2. anything the platform marks as higher quality
+  const better = pool.find(v => /(enhanced|premium|neural|natural|siri)/i.test(v.name));
+  if(better) return better;
+  // 3. the defaults that actually sound decent
+  for(const want of CONFIG.voicePreference){
+    const hit = pool.find(v => v.name.toLowerCase().includes(want.toLowerCase()));
+    if(hit) return hit;
+  }
+  // 4. whatever is left
+  return pool.find(v => v.default) || pool[0];
+}
+
+function ensureVoice(){
+  if(!CHOSEN_VOICE) CHOSEN_VOICE = pickVoice();
+  return CHOSEN_VOICE;
+}
+
+if(window.speechSynthesis){
+  // the list arrives asynchronously on most browsers
+  window.speechSynthesis.onvoiceschanged = () => { CHOSEN_VOICE = pickVoice(); };
+}
+
 function say(text){
   if(!AUDIO_OK || !window.speechSynthesis) return;
   try{
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.98; u.pitch = 1.0; u.volume = 1;
+    const v = ensureVoice();
+    if(v) u.voice = v;
+    // Slower and slightly lower than default: reads as an announcer rather
+    // than a satnav. Anything faster clips the name on a noisy floor.
+    u.rate   = CONFIG.voiceRate;
+    u.pitch  = CONFIG.voicePitch;
+    u.volume = 1;
     window.speechSynthesis.speak(u);
   }catch(e){}
+}
+
+/* Names it can find, so you can hear what's available and pick one. */
+function listVoices(){
+  const all = (window.speechSynthesis && window.speechSynthesis.getVoices()) || [];
+  return all.filter(v=>/^en/i.test(v.lang)).map(v=>v.name);
 }
 
 function queueShout(name, action, qty){
@@ -1421,7 +1492,7 @@ setInterval(()=>{
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v19";
+const BUILD = "v20";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
