@@ -262,6 +262,13 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
 @media (display-mode:standalone){
   .sheet{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
 }
+/* Anything taller than a phone: centre the sheet with breathing room top and
+   bottom, so it can never run past the edge of the window. */
+@media (min-height:720px){
+  .modal{align-items:center;padding:24px 0}
+  .sheet{border-radius:12px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);
+    padding-bottom:24px}
+}
 .sheet h3{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:20px;
   letter-spacing:.04em;color:var(--manila);margin-bottom:12px}
 .ob{display:flex;align-items:center;gap:12px;padding:13px;background:var(--ink-2);margin-bottom:7px;border-radius:4px;
@@ -341,7 +348,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v15</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v16</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -456,6 +463,15 @@ let SEGMENT = CONFIG.segments[0].name;
 let QUEUE = [];                      // entries written while offline
 let PICKED = null;
 let PENDING = null;   // name chosen, PIN not yet entered
+
+// Filled from the database on every refresh; the CONFIG values below are
+// only a fallback for demo mode.
+let LIVE_POINTS = null;
+let LIVE_MULT   = null;
+const ptsFor  = (action) => (LIVE_POINTS && LIVE_POINTS[action] != null)
+  ? LIVE_POINTS[action] : (CONFIG.activities.concat(CONFIG.outcomes).find(a=>a.action===action)||{}).pts;
+const multFor = (seg) => (LIVE_MULT && LIVE_MULT[seg] != null)
+  ? Number(LIVE_MULT[seg]) : (CONFIG.segments.find(g=>g.name===seg)||{}).mult;
 
 /* Storage is best-effort. Private browsing and sandboxed frames both
    block it, so every call falls back to memory rather than throwing. */
@@ -594,10 +610,22 @@ async function fetchAll(){
                           .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,12) : [];
     return;
   }
-  const [standings, prizes] = await Promise.all([
+  const [standings, prizes, acts, setts] = await Promise.all([
     sb("standings?select=*"),
-    sb("prizes?select=*&order=token_cost.desc,sort_order.asc")
+    sb("prizes?select=*&order=token_cost.desc,sort_order.asc"),
+    sb("actions?select=name,points"),
+    sb("settings?select=key,value&key=eq.multipliers")
   ]);
+
+  // Point values live in the database. Reading them here means the app can
+  // never show a number different from the one you actually earn.
+  if(Array.isArray(acts)){
+    LIVE_POINTS = {};
+    acts.forEach(a => LIVE_POINTS[a.name] = a.points);
+  }
+  if(Array.isArray(setts) && setts[0] && setts[0].value){
+    LIVE_MULT = setts[0].value;
+  }
   standings.sort((a,b)=>{
     if(a.rank==null && b.rank==null) return 0;
     if(a.rank==null) return 1;      // pacesetter sits below the ladder
@@ -686,7 +714,7 @@ function renderLog(){
         <div class="top">
           <div>
             <div class="nm">${a.label}</div>
-            <div class="pv">${a.pts} ${a.pts===1?"point":"points"} each</div>
+            <div class="pv">${ptsFor(a.action)} ${ptsFor(a.action)===1?"point":"points"} each</div>
           </div>
           <div class="cnt"><b>${p?p[a.track]:0}</b><span>Total</span></div>
         </div>
@@ -930,10 +958,13 @@ function askSpoke(callQty, inbound){
     `<button class="cbtn" data-n="${n}">${inbound ? "Log it" : n}</button>`).join("");
 
   // segment picker, remembering the last choice
-  $("spokeSeg").innerHTML = CONFIG.segments.map(g => `
+  $("spokeSeg").innerHTML = CONFIG.segments.map(g => {
+    const m = multFor(g.name);
+    const worth = Math.round(ptsFor("Conversation") * m);
+    return `
     <button class="segb" data-seg="${g.name}" aria-pressed="${g.name===SEGMENT}">
-      <b>${g.short}</b><i>${g.mult>1?"×"+g.mult+" points":"normal"}</i>
-    </button>`).join("");
+      <b>${g.short}</b><i>${worth} pts</i>
+    </button>`; }).join("");
   $("spokeSeg").querySelectorAll(".segb").forEach(b => b.onclick = () => {
     SEGMENT = b.dataset.seg;
     $("spokeSeg").querySelectorAll(".segb").forEach(x =>
@@ -971,7 +1002,10 @@ function closeSpoke(){ $("spoke").classList.remove("on"); }
 function openOutcome(){
   PICKED=null;
   $("acct").value=""; $("mErr").textContent=""; $("mSave").disabled=true;
-  $("outcomeOpts").innerHTML = CONFIG.outcomes.map(o=>`
+  $("outcomeOpts").innerHTML = CONFIG.outcomes
+    .map(o=>({...o, pts: ptsFor(o.action)}))
+    .sort((a,b)=>a.pts-b.pts)
+    .map(o=>`
     <button class="ob" data-o="${o.action}" aria-pressed="false">
       <span class="on2">${o.action}</span><span class="op">${o.pts} pts</span>
     </button>`).join("");
