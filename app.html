@@ -138,10 +138,7 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
 .segb[aria-pressed="true"] b{color:var(--paper)}
 .segb[aria-pressed="true"] i{color:var(--manila)}
 
-.outcomebtn{padding:18px;border:2px solid var(--postal);color:var(--postal);
-  font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.08em;
-  text-transform:uppercase;text-align:center}
-.outcomebtn:active{background:var(--postal);color:var(--ink)}
+
 
 /* ---------- board ---------- */
 .brow{display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;
@@ -367,7 +364,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v17</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v19</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -387,19 +384,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
   </div>
 </div>
 
-<div class="modal" id="modal">
-  <div class="sheet">
-    <h3>Log an outcome</h3>
-    <div id="outcomeOpts"></div>
-    <label class="fl" for="acct">Account or contact name — required</label>
-    <input type="text" id="acct" autocomplete="off" placeholder="Who was it?">
-    <div class="err" id="mErr"></div>
-    <div class="acts">
-      <button class="no" id="mCancel">Cancel</button>
-      <button class="go" id="mSave" disabled>Log it</button>
-    </div>
-  </div>
-</div>
+
 
 <div class="modal" id="spoke">
   <div class="sheet">
@@ -514,7 +499,6 @@ let ME = null;                       // {id, display_name}
 let STATE = { people:[], mine:[], shelf:[], roster:[] };
 let SEGMENT = CONFIG.segments[0].name;
 let QUEUE = [];                      // entries written while offline
-let PICKED = null;
 let PENDING = null;   // name chosen, PIN not yet entered
 
 // Filled from the database on every refresh; the CONFIG values below are
@@ -781,7 +765,7 @@ function renderLog(){
           <button class="add" data-act="${a.action}" data-n="5">+5</button>
         </div>`}
       </div>`).join("")
-    + `<button class="outcomebtn" id="openOutcome">Log an outcome</button>`;
+;
 
   $("vLog").querySelectorAll(".add").forEach(b=>b.onclick=async()=>{
     const act=b.dataset.act, n=+b.dataset.n;
@@ -794,7 +778,6 @@ function renderLog(){
   });
   const inb = $("inboundBtn");
   if(inb) inb.onclick = ()=>askSpoke(1, true);
-  $("openOutcome").onclick=openOutcome;
 }
 
 function renderBoard(){
@@ -1124,45 +1107,6 @@ async function finishWithOutcome(){
 function closeSpoke(){ $("spoke").classList.remove("on"); }
 
 /* ============================================================
-   OUTCOME MODAL
-   ============================================================ */
-function openOutcome(){
-  PICKED=null;
-  $("acct").value=""; $("mErr").textContent=""; $("mSave").disabled=true;
-  $("outcomeOpts").innerHTML = CONFIG.outcomes
-    .map(o=>({...o, pts: ptsFor(o.action)}))
-    .sort((a,b)=>a.pts-b.pts)
-    .map(o=>`
-    <button class="ob" data-o="${o.action}" aria-pressed="false">
-      <span class="on2">${o.action}</span><span class="op">${o.pts} pts</span>
-    </button>`).join("");
-  const osheet = document.querySelector("#modal .sheet");
-  if(osheet) osheet.scrollTop = 0;
-  $("outcomeOpts").querySelectorAll(".ob").forEach(b=>b.onclick=()=>{
-    PICKED=b.dataset.o;
-    $("outcomeOpts").querySelectorAll(".ob").forEach(x=>
-      x.setAttribute("aria-pressed", String(x===b)));
-    validate();
-  });
-  $("acct").oninput=validate;
-  $("modal").classList.add("on");
-}
-function validate(){
-  $("mSave").disabled = !(PICKED && $("acct").value.trim());
-}
-function closeOutcome(){ $("modal").classList.remove("on"); }
-
-async function saveOutcome(){
-  const acct=$("acct").value.trim();
-  if(!PICKED || !acct){ $("mErr").textContent="Pick an outcome and enter a name."; return; }
-  $("mSave").disabled=true;
-  closeOutcome();
-  toast(`${PICKED} logged — pending`, true);
-  if(navigator.vibrate) navigator.vibrate([12,40,12]);
-  await log(PICKED, 1, { account_name:acct });
-}
-
-/* ============================================================
    NAME GATE
    ============================================================ */
 async function verifyPin(name, pin){
@@ -1431,9 +1375,6 @@ $("chainBack").onclick=()=>{
 };
 $("chainAcct").onkeydown=e=>{ if(e.key==="Enter") finishWithOutcome(); };
 $("spoke").onclick=e=>{ if(e.target===$("spoke")) closeSpoke(); };
-$("mCancel").onclick=closeOutcome;
-$("mSave").onclick=saveOutcome;
-$("modal").onclick=e=>{ if(e.target===$("modal")) closeOutcome(); };
 $("notme").onclick=()=>{ store.del("me"); ME=null; ADMIN_PIN=null; location.reload(); };
 $("pinBack").onclick=showNameStep;
 $("pinInput").oninput=e=>{
