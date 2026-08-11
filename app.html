@@ -230,18 +230,17 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
   color:var(--dial);text-transform:uppercase}
 .pz.reach{border-color:var(--dial)}
 .pz.reach .u{color:var(--dial)}
-.pz.gone{opacity:.5}
-.pz.gone .n{color:var(--dim);text-decoration:line-through;
-  text-decoration-color:var(--postal);text-decoration-thickness:2px}
+.pz.gone{opacity:.72}
+.pz.gone .n{color:var(--dim)}
 .pz.gone b{color:var(--dim)}
-.pz.gone::before,
-.pz.gone::after{content:"";position:absolute;left:-8%;right:-8%;top:50%;height:2px;
-  background:var(--postal);opacity:.8;pointer-events:none}
-.pz.gone::before{transform:rotate(24deg)}
-.pz.gone::after{transform:rotate(-24deg)}
-.pz .so{position:absolute;bottom:8px;right:8px;color:var(--postal);
-  font-family:var(--display);font-weight:700;letter-spacing:.08em;font-size:11px;
-  background:#fff;padding:1px 4px;z-index:2}
+.pz.gone .shot{filter:grayscale(1)}
+.claimedby{display:flex;align-items:center;gap:5px;margin-top:6px;
+  font-family:var(--display);font-weight:500;text-transform:uppercase;
+  letter-spacing:.03em;font-size:11px;color:var(--dial);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.claimedby .tick{display:inline-flex;align-items:center;justify-content:center;
+  flex:0 0 auto;width:15px;height:15px;border-radius:50%;
+  background:var(--dial);color:#fff;font-size:10px;line-height:1}
 
 /* ---------- name gate ---------- */
 .gate{position:fixed;inset:0;background:var(--ink);z-index:50;display:flex;flex-direction:column;
@@ -392,7 +391,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v22</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v23</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -706,7 +705,8 @@ async function fetchAll(){
     return a.rank-b.rank;
   });
   STATE.people = standings;
-  STATE.shelf  = prizes.map(z=>({name:z.name,cost:z.token_cost,sold:!!z.claimed_by}));
+  STATE.shelf  = prizes.map(z=>({name:z.name,cost:z.token_cost,sold:!!z.claimed_by,
+                                 by:z.claimed_by||null}));
   STATE.mine   = ME ? await sb(`entries?select=*&participant_id=eq.${ME.id}&order=created_at.desc&limit=12`) : [];
 }
 
@@ -912,10 +912,21 @@ function groupShelf(shelf){
   for(const it of shelf){
     const base=it.name.replace(/\s*#\d+\s*$/,"").trim();
     const key=base+"|"+it.cost;
-    if(!map.has(key)) map.set(key,{name:base,cost:it.cost,total:0,left:0});
-    const g=map.get(key); g.total++; if(!it.sold) g.left++;
+    if(!map.has(key)) map.set(key,{name:base,cost:it.cost,total:0,left:0,by:[]});
+    const g=map.get(key); g.total++;
+    if(!it.sold) g.left++; else if(it.by) g.by.push(it.by);
   }
   return [...map.values()].sort((a,b)=>b.cost-a.cost||a.name.localeCompare(b.name));
+}
+
+function claimerNames(ids){
+  const byId={};
+  (STATE.people||[]).forEach(p=>{ if(p.id) byId[p.id]=p.display_name; });
+  const names=[...new Set(ids.map(i=>byId[i]).filter(Boolean))];
+  if(!names.length) return "";
+  if(names.length===1) return names[0];
+  if(names.length===2) return names[0]+" and "+names[1];
+  return names.slice(0,2).join(", ")+" +"+(names.length-2);
 }
 
 
@@ -973,12 +984,13 @@ function renderShelf(){
   const p=me(), tok=p?p.tokens:0;
   $("vShelf").innerHTML = `<div class="shelf">${groupShelf(STATE.shelf).map(g=>{
     const gone=g.left===0, reach=!gone&&tok>=g.cost;
+    const who=claimerNames(g.by);
     return `<div class="pz ${gone?"gone":(reach?"reach":"")}">
-      ${gone?'<div class="so">Claimed</div>':''}
       <div class="shot"><img src="${photoFor(g.name)}" alt="" onerror="nextShot(this)"></div>
       <div class="n">${g.name}</div>
       <div class="pzfoot"><b>${g.cost}</b><span class="u">tokens</span>
         <span class="lft">${gone?"":(g.total>1?g.left+" left":(reach?"yours":""))}</span></div>
+      ${who?`<div class="claimedby"><span class="tick">✓</span>${who}</div>`:""}
     </div>`;}).join("")}</div>`;
 }
 

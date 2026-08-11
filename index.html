@@ -362,6 +362,56 @@ body{
 .item .left{margin-left:auto;font-family:var(--data);
   font-size:clamp(9px,.62vw,14px);letter-spacing:.1em;color:var(--dial);
   text-transform:uppercase}
+.item.gone{opacity:.72}
+.item.gone .nm2{color:var(--dim)}
+.item.gone .cost{color:var(--dim)}
+.item.gone .shot{filter:grayscale(1)}
+
+/* Who took it, small and green, under the price. Far more useful on a wall
+   than a big red X — people want to know who beat them to it. */
+.claimedby{display:flex;align-items:center;gap:.4em;margin-top:.35em;
+  font-family:var(--display);font-weight:500;text-transform:uppercase;
+  letter-spacing:.03em;font-size:clamp(10px,.95vw,20px);color:var(--dial);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.claimedby .tick{display:inline-flex;align-items:center;justify-content:center;
+  flex:0 0 auto;width:1.35em;height:1.35em;border-radius:50%;
+  background:var(--dial);color:#fff;font-size:.78em;line-height:1}
+
+.shelf{flex:1 1 auto;display:grid;gap:calc(var(--pad)*.55);min-height:0;
+  grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr}
+.item{
+  background:var(--ink-2);padding:calc(var(--pad)*.6);
+  box-shadow:var(--shadow);border-radius:3px;
+  /* Text left, square photo right. The square is sized from the viewport
+     rather than from the tile's height — deriving it from the row height
+     lets some browsers collapse it to nothing. */
+  display:flex;align-items:center;gap:calc(var(--pad)*.5);
+  position:relative;overflow:hidden;border-left:3px solid var(--ink-3);
+}
+.item .txt{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;
+  gap:.35em;min-width:0}
+.item.reach{border-left-color:var(--dial)}
+/* The name is what people are chasing, so it leads. */
+.item .nm2{
+  font-family:var(--display);font-weight:500;text-transform:uppercase;
+  letter-spacing:.03em;line-height:1.1;
+  font-size:clamp(13px,1.3vw,28px);color:var(--paper);
+}
+.item .shot{flex:0 0 auto;height:clamp(46px,8.4vh,150px);width:clamp(46px,8.4vh,150px);
+  background:#fff;border-radius:3px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center}
+.item .shot img{width:100%;height:100%;object-fit:cover;display:block}
+.item.gone .shot{filter:grayscale(1)}
+.item .itfoot{display:flex;align-items:baseline;gap:.4em}
+.item .cost{
+  font-family:var(--display);font-weight:700;color:var(--manila);
+  font-size:clamp(18px,1.9vw,40px);line-height:1;
+}
+.item .costlbl{font-family:var(--data);font-size:clamp(8px,.55vw,12px);
+  color:var(--dim);letter-spacing:.18em;text-transform:uppercase}
+.item .left{margin-left:auto;font-family:var(--data);
+  font-size:clamp(9px,.62vw,14px);letter-spacing:.1em;color:var(--dial);
+  text-transform:uppercase}
 .item.gone{opacity:.5}
 .item.gone .nm2{color:var(--dim);text-decoration:line-through;
   text-decoration-color:var(--postal);text-decoration-thickness:2px}
@@ -376,12 +426,7 @@ body{
 .item.gone::before{transform:rotate(21deg)}
 .item.gone::after{transform:rotate(-21deg)}
 
-.item.gone .soldout{
-  position:absolute;bottom:calc(var(--pad)*.5);right:calc(var(--pad)*.5);
-  color:var(--postal);font-family:var(--display);font-weight:700;
-  letter-spacing:.1em;font-size:clamp(9px,.72vw,16px);white-space:nowrap;
-  background:#fff;padding:.1em .35em;z-index:2;
-}
+
 
 /* ---------- today ---------- */
 .todaygrid{flex:1 1 auto;display:grid;grid-template-columns:1.15fr 1fr;gap:var(--pad);min-height:0}
@@ -974,12 +1019,24 @@ function groupShelf(shelf){
   for(const it of shelf){
     const base = it.name.replace(/\s*#\d+\s*$/, "").trim();
     const key = base + "|" + it.cost;
-    if(!map.has(key)) map.set(key, { name:base, cost:it.cost, total:0, left:0 });
+    if(!map.has(key)) map.set(key, { name:base, cost:it.cost, total:0, left:0, by:[] });
     const g = map.get(key);
     g.total++;
     if(!it.sold) g.left++;
+    else if(it.by) g.by.push(it.by);
   }
   return [...map.values()].sort((a,b)=>b.cost-a.cost || a.name.localeCompare(b.name));
+}
+
+/* claimed_by comes back as an id; turn it into the name on the tile. */
+function claimerNames(ids){
+  const byId = {};
+  (MODEL.people||[]).forEach(p=>{ if(p.id) byId[p.id] = p.name; });
+  const names = [...new Set(ids.map(i=>byId[i]).filter(Boolean))];
+  if(!names.length) return "";
+  if(names.length === 1) return names[0];
+  if(names.length === 2) return names[0] + " and " + names[1];
+  return names.slice(0,2).join(", ") + " +" + (names.length-2);
 }
 
 /* Photos are matched by filename, derived from the prize name. Drop
@@ -1042,8 +1099,8 @@ function renderShelf(people, shelf){
   $("shelfGrid").innerHTML = groups.map(g=>{
     const gone  = g.left === 0;
     const reach = !gone && best >= g.cost;
+    const who = claimerNames(g.by);
     return `<div class="item ${gone?"gone":""} ${reach?"reach":""}">
-      ${gone?'<div class="soldout">Claimed</div>':''}
       <div class="txt">
         <div class="nm2">${g.name}</div>
         <div class="itfoot">
@@ -1051,6 +1108,7 @@ function renderShelf(people, shelf){
           <span class="costlbl">tokens</span>
           <span class="left">${gone ? "" : (g.total>1 ? g.left+" left" : (reach?"claimable":""))}</span>
         </div>
+        ${who ? `<div class="claimedby"><span class="tick">✓</span>${who}</div>` : ""}
       </div>
       <div class="shot"><img src="${photoFor(g.name)}" alt="" onerror="nextShot(this)"></div>
     </div>`;
@@ -1492,7 +1550,7 @@ setInterval(()=>{
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v20";
+const BUILD = "v21";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
@@ -1590,6 +1648,7 @@ async function loadSupabase(){
   });
 
   const people = standings.map(s=>({
+    id: s.id,
     name: s.display_name,
     pts: s.points,
     pending: s.pending_points,
@@ -1615,7 +1674,8 @@ async function loadSupabase(){
       ts:new Date(f.created_at), name:f.display_name, action:f.action,
       count:f.qty, verified:f.verified, isWin:f.track==="wins"
     })),
-    shelf: prizes.map(p=>({ name:p.name, cost:p.token_cost, sold:!!p.claimed_by })),
+    shelf: prizes.map(p=>({ name:p.name, cost:p.token_cost, sold:!!p.claimed_by,
+                            by:p.claimed_by || null })),
     daily, winners, hourly
   };
 
