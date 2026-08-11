@@ -58,9 +58,9 @@ input[type=tel]:focus{outline:2px solid var(--manila);outline-offset:-2px}
 .pinwrap .go{width:100%;margin-top:12px;padding:16px;background:var(--manila);color:#fff;border-radius:4px;
   font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.07em;text-transform:uppercase}
 .pinwrap .go:disabled{opacity:.35}
-.spokesub{font-size:12px;color:var(--dim);margin:-6px 0 14px;line-height:1.35}
+.spokesub{font-size:12px;color:var(--dim);margin:-8px 0 12px;line-height:1.3}
 .counts{display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap}
-.cbtn{flex:1 1 0;min-width:56px;padding:18px 0;background:var(--ink-2);border:1px solid var(--ink-3);
+.cbtn{flex:1 1 0;min-width:52px;padding:15px 0;background:var(--ink-2);border:1px solid var(--ink-3);
   border-radius:4px;font-family:var(--display);font-weight:700;font-size:22px;color:var(--paper);
   transition:transform .08s ease}
 .cbtn:active{transform:scale(.94);background:var(--violet);color:#fff;border-color:var(--violet)}
@@ -244,24 +244,37 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
 
 /* ---------- modal ---------- */
 .modal{position:fixed;inset:0;background:rgba(13,31,51,.45);backdrop-filter:blur(2px);z-index:40;display:none;
-  align-items:flex-end;justify-content:center}
+  align-items:flex-end;justify-content:center;overscroll-behavior:contain}
 .modal.on{display:flex}
 .sheet{background:#fff;border-radius:14px 14px 0 0;width:100%;max-width:560px;padding:20px;
-  padding-bottom:calc(20px + env(safe-area-inset-bottom));
-  border-top:3px solid var(--postal);max-height:90dvh;overflow:auto}
-.sheet h3{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:21px;
-  letter-spacing:.04em;color:var(--manila);margin-bottom:14px}
+  border-top:3px solid var(--postal);
+  /* vh first as the fallback: dvh needs iOS 15.4+, and without a working
+     cap the sheet runs off the bottom of the screen. */
+  max-height:88vh;
+  max-height:88dvh;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  /* Clear the browser's bottom toolbar as well as the home indicator.
+     Anchored to the bottom, the last control is the one that gets eaten. */
+  padding-bottom:calc(72px + env(safe-area-inset-bottom));
+}
+/* Standalone (Add to Home Screen) has no browser toolbar to clear. */
+@media (display-mode:standalone){
+  .sheet{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+}
+.sheet h3{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:20px;
+  letter-spacing:.04em;color:var(--manila);margin-bottom:12px}
 .ob{display:flex;align-items:center;gap:12px;padding:13px;background:var(--ink-2);margin-bottom:7px;border-radius:4px;
   border-left:3px solid var(--ink-3);width:100%;text-align:left}
 .ob[aria-pressed="true"]{border-left-color:var(--postal);background:var(--ink-3)}
 .ob .on2{font-family:var(--display);font-weight:500;text-transform:uppercase;font-size:16px;letter-spacing:.03em}
 .ob .op{margin-left:auto;font-family:var(--data);font-size:12px;color:var(--manila)}
 label.fl{display:block;font-family:var(--data);font-size:10px;letter-spacing:.16em;
-  color:var(--dim);text-transform:uppercase;margin:14px 0 6px}
+  color:var(--dim);text-transform:uppercase;margin:12px 0 5px}
 input[type=text]{width:100%;padding:14px;background:#fff;border:1px solid var(--ink-3);border-radius:4px;
   color:var(--paper);font:inherit;font-size:16px}
 input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
-.acts{display:flex;gap:8px;margin-top:18px}
+.acts{display:flex;gap:8px;margin-top:14px}
 .acts button{flex:1;padding:15px;font-family:var(--display);font-weight:700;font-size:16px;
   letter-spacing:.07em;text-transform:uppercase}
 .acts .go{background:var(--postal);color:#fff;border-radius:4px}
@@ -328,7 +341,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v14</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v15</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -944,6 +957,10 @@ function askSpoke(callQty, inbound){
   });
 
   $("spoke").classList.add("on");
+  // Start at the top of the sheet's own scroll, so the question and the
+  // count buttons are what you see first even on a short screen.
+  const sheet = document.querySelector("#spoke .sheet");
+  if(sheet) sheet.scrollTop = 0;
 }
 
 function closeSpoke(){ $("spoke").classList.remove("on"); }
@@ -958,6 +975,8 @@ function openOutcome(){
     <button class="ob" data-o="${o.action}" aria-pressed="false">
       <span class="on2">${o.action}</span><span class="op">${o.pts} pts</span>
     </button>`).join("");
+  const osheet = document.querySelector("#modal .sheet");
+  if(osheet) osheet.scrollTop = 0;
   $("outcomeOpts").querySelectorAll(".ob").forEach(b=>b.onclick=()=>{
     PICKED=b.dataset.o;
     $("outcomeOpts").querySelectorAll(".ob").forEach(x=>
