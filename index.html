@@ -507,6 +507,9 @@ const CONFIG = {
   start: "2026-08-11",   // first day of the contest (YYYY-MM-DD)
   end:   "2026-08-20",   // last day
 
+  // Days the office actually works. 0=Sun, 1=Mon ... 6=Sat.
+  workingDays: [1,2,3,4],
+
   refreshSeconds: 60,
   rotateSeconds: 20,
 
@@ -912,15 +915,29 @@ function renderShelf(people, shelf){
   }).join("");
 }
 
+/* The office works Monday to Thursday, so calendar days overstate what's
+   left. Counting only working days makes "3 left" mean three actual
+   chances to log something. */
+function workingDaysBetween(from, to){
+  let n = 0;
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  while(d <= end){
+    if(CONFIG.workingDays.includes(d.getDay())) n++;
+    d.setDate(d.getDate()+1);
+  }
+  return n;
+}
+
 function renderMeta(people){
   const s=new Date(CONFIG.start+"T00:00:00"), e=new Date(CONFIG.end+"T23:59:59"), n=new Date();
-  const day = Math.floor((n-s)/864e5)+1;
-  const total = Math.floor((e-s)/864e5)+1;
-  const leftMs = e-n;
+  const total = workingDaysBetween(s, e);
+  const day   = n < s ? 0 : workingDaysBetween(s, n);
+  const left  = n > e ? 0 : Math.max(0, workingDaysBetween(n, e) - (CONFIG.workingDays.includes(n.getDay()) ? 1 : 0));
   $("mDay").textContent = day<1 ? "Soon" : `${Math.min(day,total)} / ${total}`;
-  if(leftMs<=0) $("mLeft").textContent="Closed";
-  else if(leftMs<864e5) $("mLeft").textContent = Math.floor(leftMs/36e5)+"h";
-  else $("mLeft").textContent = Math.ceil(leftMs/864e5)+"d";
+  if(n>e) $("mLeft").textContent="Closed";
+  else if(left===0) $("mLeft").textContent="Last day";
+  else $("mLeft").textContent = left+"d";
   $("mTotal").textContent = people.reduce((s2,p)=>s2+p.pts,0);
   $("mClock").textContent = new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
 }
@@ -995,7 +1012,7 @@ document.querySelector(".stage").addEventListener("click", rotate);
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v11";
+const BUILD = "v12";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
