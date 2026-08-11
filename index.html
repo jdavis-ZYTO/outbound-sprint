@@ -90,26 +90,41 @@ body{
 
 /* ---------- stage ---------- */
 .stage{flex:1 1 auto;position:relative;overflow:hidden}
-/* Slides down over the board when an outcome lands. Loud enough to look up
-   for, short enough that it never blocks the standings for long. */
-.shout{position:absolute;left:0;right:0;top:0;z-index:22;pointer-events:none;
-  display:flex;justify-content:center;padding:calc(var(--pad)*.6)}
+/* A full takeover, not a banner. An outcome is the biggest thing that
+   happens on this board, so it gets the whole screen. */
+.shout{position:absolute;inset:0;z-index:22;background:var(--postal);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  padding:var(--pad)}
 .shout[hidden]{display:none}
-.shoutInner{background:var(--postal);color:#fff;border-radius:4px;
-  padding:calc(var(--pad)*.7) calc(var(--pad)*1.4);text-align:center;
-  box-shadow:0 10px 40px rgba(224,35,24,.35)}
+.shoutInner{position:relative;z-index:2;text-align:center;color:#fff}
+.shoutEyebrow{font-family:var(--data);font-size:clamp(11px,1vw,24px);
+  letter-spacing:.34em;text-transform:uppercase;opacity:.85;margin-bottom:.5em}
 .shoutWho{font-family:var(--display);font-weight:700;text-transform:uppercase;
-  letter-spacing:.03em;font-size:clamp(26px,3.4vw,72px);line-height:1}
-.shoutWhat{font-family:var(--body);font-size:clamp(12px,1.15vw,26px);opacity:.92;
-  margin-top:.25em}
-@keyframes shoutIn{
-  0%  {opacity:0;transform:translateY(-120%) scale(.95)}
-  12% {opacity:1;transform:translateY(0) scale(1.03)}
-  20% {transform:translateY(0) scale(1)}
-  88% {opacity:1;transform:translateY(0)}
-  100%{opacity:0;transform:translateY(-120%)}
+  letter-spacing:.01em;font-size:clamp(56px,10vw,220px);line-height:.95}
+.shoutWhat{font-family:var(--display);font-weight:700;text-transform:uppercase;
+  letter-spacing:.04em;font-size:clamp(26px,4.6vw,104px);line-height:1.05;
+  margin-top:.12em}
+.shoutSub{font-family:var(--body);font-size:clamp(13px,1.3vw,30px);
+  opacity:.8;margin-top:1em}
+.shoutPts{display:inline-block;margin-top:.7em;background:#fff;color:var(--postal);
+  font-family:var(--display);font-weight:700;font-size:clamp(22px,3.2vw,72px);
+  padding:.06em .45em;border-radius:4px}
+
+/* Light sweeping across the red, so it never looks like a static slide. */
+@keyframes shoutSweep{0%{transform:translateX(-60%) rotate(12deg)}100%{transform:translateX(160%) rotate(12deg)}}
+.shoutGlow{position:absolute;top:-40%;bottom:-40%;width:45%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.16),transparent);
+  animation:shoutSweep 3.4s ease-in-out infinite;pointer-events:none;z-index:1}
+
+@keyframes shoutPop{
+  0%  {opacity:0;transform:scale(.7)}
+  55% {opacity:1;transform:scale(1.05)}
+  70% {transform:scale(.99)}
+  100%{opacity:1;transform:scale(1)}
 }
-.shout:not([hidden]) .shoutInner{animation:shoutIn 7s cubic-bezier(.2,.9,.3,1) both}
+.shout:not([hidden]) .shoutInner{animation:shoutPop .6s cubic-bezier(.2,.9,.3,1) both}
+@keyframes shoutFlash{0%,100%{background:var(--postal)}50%{background:#F5473B}}
+.shout:not([hidden]){animation:shoutFlash .55s ease-in-out 3}
 
 .soundbtn{background:var(--postal);color:#fff;border:none;border-radius:99px;
   padding:.5em 1.1em;font-family:var(--data);font-size:clamp(9px,.62vw,14px);
@@ -492,9 +507,13 @@ body{
   <main class="stage">
 
     <div class="shout" id="shout" hidden>
+      <div class="shoutGlow"></div>
       <div class="shoutInner">
+        <div class="shoutEyebrow">Just logged</div>
         <div class="shoutWho" id="shoutWho"></div>
         <div class="shoutWhat" id="shoutWhat"></div>
+        <div><span class="shoutPts" id="shoutPts"></span></div>
+        <div class="shoutSub" id="shoutSub"></div>
       </div>
     </div>
 
@@ -581,6 +600,9 @@ const CONFIG = {
 
   // Days the office actually works. 0=Sun, 1=Mon ... 6=Sat.
   workingDays: [1,2,3,4],
+
+  // Outcome announcement: full screen, with sound
+  shoutSeconds: 18,
 
   // Top-of-the-hour takeover
   takeoverSeconds: 14,   // how long it holds the screen
@@ -1114,6 +1136,7 @@ function draw(){
      - the board polls, so it announces whatever appeared since the
        last poll rather than reacting live
    ============================================================ */
+let LIVE_POINTS = null;        // action point values, read from the database
 let SEEN_OUTCOMES = null;      // null until the first poll establishes a baseline
 let AUDIO_OK = false;
 let AUDIO_CTX = null;
@@ -1138,21 +1161,33 @@ function unlockAudio(){
   }catch(e){ /* no audio available; the banner still works */ }
 }
 
-/* A short rising two-note chime, generated rather than loaded, so there's
-   no file to host and nothing to fail on a cold start. */
-function chime(){
+/* Generated rather than loaded: no file to host, nothing to fail on a cold
+   start, and the volume is ours to control. */
+function tone(hz, at, dur, vol, type){
   if(!AUDIO_OK || !AUDIO_CTX) return;
   const t0 = AUDIO_CTX.currentTime;
-  [[880, 0], [1318.5, 0.13]].forEach(([hz, at])=>{
-    const o = AUDIO_CTX.createOscillator(), g = AUDIO_CTX.createGain();
-    o.type = "triangle";
-    o.frequency.value = hz;
-    g.gain.setValueAtTime(0.0001, t0 + at);
-    g.gain.exponentialRampToValueAtTime(0.22, t0 + at + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + 0.42);
-    o.connect(g); g.connect(AUDIO_CTX.destination);
-    o.start(t0 + at); o.stop(t0 + at + 0.45);
-  });
+  const o = AUDIO_CTX.createOscillator(), g = AUDIO_CTX.createGain();
+  o.type = type || "triangle";
+  o.frequency.value = hz;
+  g.gain.setValueAtTime(0.0001, t0 + at);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + at + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur);
+  o.connect(g); g.connect(AUDIO_CTX.destination);
+  o.start(t0 + at); o.stop(t0 + at + dur + 0.05);
+}
+
+function chime(){
+  tone(880, 0, 0.42, 0.30);
+  tone(1318.5, 0.13, 0.42, 0.26);
+}
+
+/* Six notes climbing, loud enough to turn heads across a sales floor. */
+function fanfare(){
+  const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98];
+  notes.forEach((hz, i) => tone(hz, i * 0.11, 0.55, 0.34, "triangle"));
+  // a low swell underneath so it carries
+  tone(130.81, 0, 1.0, 0.16, "sine");
+  tone(196.00, 0.22, 0.9, 0.14, "sine");
 }
 
 function say(text){
@@ -1166,26 +1201,33 @@ function say(text){
 }
 
 function queueShout(name, action, qty){
-  SHOUT_QUEUE.push({ name, action, qty });
+  const pts = (LIVE_POINTS && LIVE_POINTS[action] != null)
+    ? LIVE_POINTS[action]
+    : ((CONFIG.points && CONFIG.points[action]) || null);
+  SHOUT_QUEUE.push({ name, action, qty, pts });
   if(!SHOUTING) nextShout();
 }
 
 function nextShout(){
   if(!SHOUT_QUEUE.length){ SHOUTING = false; return; }
   SHOUTING = true;
-  const { name, action } = SHOUT_QUEUE.shift();
+  const { name, action, pts } = SHOUT_QUEUE.shift();
 
   $("shoutWho").textContent  = name;
-  $("shoutWhat").textContent = action.toUpperCase() + " · pending confirmation";
+  $("shoutWhat").textContent = action;
+  $("shoutPts").textContent  = pts ? "+" + pts : "";
+  $("shoutSub").textContent  = "Pending confirmation";
   $("shout").hidden = false;
 
-  chime();
-  setTimeout(()=>say(`${name} just logged a ${action}`), 700);
+  // fanfare up front, then the name, then a second chime to close it out
+  fanfare();
+  setTimeout(()=>say(`${name.replace(/\s+[A-Z]$/, "")} just logged a ${action}`), 1100);
+  setTimeout(()=>chime(), CONFIG.shoutSeconds*1000 - 1400);
 
   setTimeout(()=>{
     $("shout").hidden = true;
-    setTimeout(nextShout, 400);
-  }, 7000);
+    setTimeout(nextShout, 500);
+  }, CONFIG.shoutSeconds*1000);
 }
 
 /* Compare the newest feed against what we've already announced. */
@@ -1337,7 +1379,7 @@ $("soundBtn").addEventListener("click", unlockAudio);
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v17";
+const BUILD = "v18";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
@@ -1396,13 +1438,14 @@ async function loadSupabase(){
   // Fetched independently: if the prize list or the activity feed fails, the
   // standings should still render. Bundling them meant one bad query blanked
   // the whole screen.
-  const [sRes, fRes, pRes, dRes, wRes, hRes] = await Promise.allSettled([
+  const [sRes, fRes, pRes, dRes, wRes, hRes, aRes] = await Promise.allSettled([
     sbGet("standings?select=*"),
     sbGet("activity_feed?select=*&limit=30"),
     sbGet("prizes?select=*&order=token_cost.desc,sort_order.asc"),
     sbGet("daily_scores?select=*"),
     sbGet("daily_winners?select=*&limit=8"),
-    sbGet("hourly_movers?select=*&limit=12")
+    sbGet("hourly_movers?select=*&limit=12"),
+    sbGet("actions?select=name,points")
   ]);
 
   if(sRes.status === "rejected"){
@@ -1415,6 +1458,13 @@ async function loadSupabase(){
   const daily     = dRes.status === "fulfilled" ? (dRes.value || []) : [];
   const winners   = wRes.status === "fulfilled" ? (wRes.value || []) : [];
   const hourly    = hRes.status === "fulfilled" ? (hRes.value || []) : [];
+
+  // Point values live in the database. Reading them here means the board can
+  // never announce a number different from the one that was actually earned.
+  if(aRes.status === "fulfilled" && Array.isArray(aRes.value)){
+    LIVE_POINTS = {};
+    aRes.value.forEach(a => LIVE_POINTS[a.name] = a.points);
+  }
 
   // Sorted here rather than server-side: ordering by rank was rejected with a
   // 400, and fourteen rows cost nothing to sort in the browser. Nulls (the
@@ -1456,7 +1506,7 @@ async function loadSupabase(){
     daily, winners, hourly
   };
 
-  const partial = [fRes,pRes,dRes,wRes,hRes].some(r=>r.status==="rejected") ? " · some panels unavailable" : "";
+  const partial = [fRes,pRes,dRes,wRes,hRes,aRes].some(r=>r.status==="rejected") ? " · some panels unavailable" : "";
   setStatus(`Live · <b>${people.length}</b> players · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}${partial} · ${BUILD}`, !!partial);
   draw();
 }
