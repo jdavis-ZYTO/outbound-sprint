@@ -128,7 +128,9 @@ body{
 
 .soundbtn{background:var(--postal);color:#fff;border:none;border-radius:99px;
   padding:.5em 1.1em;font-family:var(--data);font-size:clamp(9px,.62vw,14px);
-  letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+  letter-spacing:.14em;text-transform:uppercase;cursor:pointer;white-space:nowrap}
+.soundbtn.on{background:var(--dial)}
+.soundbtn.warn{background:var(--manila)}
 
 .takeover{position:absolute;inset:0;z-index:20;background:var(--ink);
   display:flex;align-items:center;justify-content:center;overflow:hidden}
@@ -569,7 +571,7 @@ body{
   </main>
 
   <footer class="footer">
-    <button class="soundbtn" id="soundBtn" hidden>Tap anywhere to turn sound on</button>
+    <button class="soundbtn" id="soundBtn">Sound off · tap to test</button>
     <div class="status" id="status">Loading</div>
     <div class="dots" id="dots"></div>
   </footer>
@@ -1143,22 +1145,57 @@ let AUDIO_CTX = null;
 const SHOUT_QUEUE = [];
 let SHOUTING = false;
 
-function unlockAudio(){
-  if(AUDIO_OK) return;
+function setSoundLabel(text, cls){
+  const b = $("soundBtn");
+  b.textContent = text;
+  b.className = "soundbtn" + (cls ? " " + cls : "");
+}
+
+function unlockAudio(silent){
   try{
-    AUDIO_CTX = new (window.AudioContext || window.webkitAudioContext)();
-    if(AUDIO_CTX.state === "suspended") AUDIO_CTX.resume();
-    // a silent blip is what actually satisfies the autoplay gate
+    if(!AUDIO_CTX){
+      AUDIO_CTX = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if(AUDIO_CTX.state === "suspended"){ AUDIO_CTX.resume(); }
+
+    // A silent blip is what actually satisfies the autoplay gate on iOS.
     const o = AUDIO_CTX.createOscillator(), g = AUDIO_CTX.createGain();
     g.gain.value = 0; o.connect(g); g.connect(AUDIO_CTX.destination);
     o.start(); o.stop(AUDIO_CTX.currentTime + 0.01);
+
     if(window.speechSynthesis){
       const u = new SpeechSynthesisUtterance(" ");
       u.volume = 0; window.speechSynthesis.speak(u);
     }
-    AUDIO_OK = true;
-    $("soundBtn").hidden = true;
-  }catch(e){ /* no audio available; the banner still works */ }
+
+    AUDIO_OK = (AUDIO_CTX.state === "running");
+    if(!silent){
+      if(AUDIO_OK) setSoundLabel("Sound on", "on");
+      else setSoundLabel("Blocked · tap again", "warn");
+    }
+  }catch(e){
+    AUDIO_OK = false;
+    if(!silent) setSoundLabel("No audio on this device", "warn");
+  }
+}
+
+/* Tapping the chip unlocks audio AND plays the real fanfare, so there is a
+   definite answer to "is the sound working" rather than a silent maybe.
+   If nothing is heard after this, it is the device: on an iPad, Web Audio
+   is silenced by the mute toggle in Control Centre even at full volume. */
+function testSound(){
+  unlockAudio();
+  if(AUDIO_OK){
+    fanfare();
+    setTimeout(()=>say("Sound is working"), 1000);
+    setSoundLabel("Sound on · playing test", "on");
+    setTimeout(()=>{
+      setSoundLabel(AUDIO_CTX && AUDIO_CTX.state === "running"
+        ? "Sound on · check iPad mute" : "Sound off · tap to test",
+        AUDIO_CTX && AUDIO_CTX.state === "running" ? "on" : "");
+    }, 4000);
+    setTimeout(()=>{ if(AUDIO_OK) setSoundLabel("Sound on", "on"); }, 9000);
+  }
 }
 
 /* Generated rather than loaded: no file to host, nothing to fail on a cold
@@ -1370,16 +1407,21 @@ document.addEventListener("keydown",e=>{
   if(e.key==="ArrowLeft"){ pi=(pi-1+PANELS.length)%PANELS.length; show(pi); }
 });
 document.querySelector(".stage").addEventListener("click", rotate);
+// Any interaction quietly unlocks audio; the chip is for confirming it.
 ["click","touchstart","keydown"].forEach(ev=>
-  document.addEventListener(ev, unlockAudio, { once:false, passive:true }));
-// Show the prompt only if audio is still locked a moment after load.
-setTimeout(()=>{ if(!AUDIO_OK) $("soundBtn").hidden = false; }, 2500);
-$("soundBtn").addEventListener("click", unlockAudio);
+  document.addEventListener(ev, ()=>unlockAudio(true), { once:false, passive:true }));
+$("soundBtn").addEventListener("click", e=>{ e.stopPropagation(); testSound(); });
+setInterval(()=>{
+  if(AUDIO_CTX && AUDIO_CTX.state !== "running" && AUDIO_OK){
+    AUDIO_OK = false;
+    setSoundLabel("Sound off · tap to test", "");
+  }
+}, 30000);
 
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v18";
+const BUILD = "v19";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
