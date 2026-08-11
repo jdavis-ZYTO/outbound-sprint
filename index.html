@@ -135,6 +135,9 @@ body{
 .row.top{border-left-color:var(--postal);background:#FFF4F3;position:relative;overflow:hidden}
 .row.second{border-left-color:var(--manila)}
 .row.third{border-left-color:var(--dial)}
+.hcap{font-family:var(--data);font-size:.42em;letter-spacing:.06em;color:var(--postal);
+  border:1px solid var(--postal);border-radius:3px;padding:.1em .3em;margin-left:.5em;
+  vertical-align:middle;white-space:nowrap}
 .row.pace{border-left-color:var(--manila);background:#FFFBF4;
   border-top:2px dashed var(--ink-3);flex:0 0 auto;padding-top:.4vh;padding-bottom:.4vh}
 .row.pace .rank{font-family:var(--data);font-size:clamp(8px,.62vw,14px);
@@ -761,7 +764,7 @@ function renderBoard(people){
     <div class="row ${cls} ${p.delta?"moved":""}">
       <div class="rank">${p.rank}${d}</div>
       <div class="who">
-        <div class="nm">${p.name}</div>
+        <div class="nm">${p.name}${p.mult!==1?`<span class="hcap">×${p.mult}</span>`:""}</div>
         <div class="tok">${p.tokens} tokens${spent}</div>
       </div>
       ${tracks(p)}
@@ -823,7 +826,8 @@ function renderToday(people, feed){
     .filter(p=>p.competing!==false)
     .map(p=>{
       const d = byName[p.name];
-      return { name:p.name, pts: d ? d.points : (p.today||0),
+      return { name:p.name, mult:p.mult===undefined?1:p.mult,
+               pts: d ? d.points : (p.today||0),
                calls: d?d.calls:0, letters: d?d.letters:0, convos: d?d.convos:0 };
     })
     .sort((a,b)=> b.pts-a.pts || a.name.localeCompare(b.name))
@@ -834,7 +838,7 @@ function renderToday(people, feed){
     <div class="mover ${r.pts>0 && r.pts===top ? "lead" : ""} ${r.pts===0?"zero":""}">
       <span class="mrk">${r.pts>0 ? (i+1) : "·"}</span>
       <span>
-        <span class="mn">${r.name}</span>
+        <span class="mn">${r.name}${r.mult!==1?`<span class="hcap">×${r.mult}</span>`:""}</span>
         <span class="msub">${r.convos} convo${r.convos===1?"":"s"} · ${r.letters} letter${r.letters===1?"":"s"} · ${r.calls} call${r.calls===1?"":"s"}</span>
       </span>
       <span class="mp">${r.pts>0?r.pts:"—"}</span>
@@ -1049,7 +1053,7 @@ document.querySelector(".stage").addEventListener("click", rotate);
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v15";
+const BUILD = "v16";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
@@ -1146,6 +1150,7 @@ async function loadSupabase(){
     tokens: s.tokens,
     rank: s.rank,
     competing: s.competing !== false,
+    mult: s.score_multiplier === undefined ? 1 : Number(s.score_multiplier),
     spent: s.tokens_spent || 0,
     delta: lastRank[s.display_name]===undefined ? 0 : lastRank[s.display_name]-s.rank
   }));
