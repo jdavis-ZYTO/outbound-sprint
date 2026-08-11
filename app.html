@@ -69,6 +69,25 @@ input[type=tel]:focus{outline:2px solid var(--manila);outline-offset:-2px}
 .inbound{margin-top:10px;width:100%;padding:11px;border:1px solid var(--ink-3);border-radius:4px;
   font-family:var(--data);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
 .inbound:active{background:var(--ink-3);color:var(--paper)}
+/* Big two-option choice, so the common answer is a single confident tap. */
+.bigchoice{display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+.bc{width:100%;text-align:left;padding:15px 16px;border:1.5px solid var(--ink-3);
+  border-radius:6px;background:var(--ink-2);display:block;transition:transform .08s ease}
+.bc b{display:block;font-family:var(--display);font-weight:500;text-transform:uppercase;
+  letter-spacing:.03em;font-size:17px;color:var(--paper);line-height:1.15}
+.bc i{display:block;font-family:var(--body);font-style:normal;font-size:11px;
+  color:var(--dim);margin-top:3px;line-height:1.3}
+.bc:active{transform:scale(.98)}
+.bc.vm:active{border-color:var(--dim);background:var(--ink-3)}
+.bc.live{border-color:var(--violet)}
+.bc.live b{color:var(--violet)}
+.bc.live:active{background:var(--violet)}
+.bc.live:active b,.bc.live:active i{color:#fff}
+.bc.plain{border-color:var(--dial);margin-bottom:10px}
+.bc.plain b{color:var(--dial)}
+.bc.plain:active{background:var(--dial)}
+.bc.plain:active b,.bc.plain:active i{color:#fff}
+#stepOutcome[hidden],#stepHow[hidden],#chainDetail[hidden],#chainNoteWrap[hidden]{display:none}
 .pinerr{color:var(--postal);font-size:14px;margin-top:12px;min-height:1.2em}
 .chip{margin-left:auto;text-align:right}
 .chip .r{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;color:var(--paper)}
@@ -348,7 +367,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v16</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v17</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -384,18 +403,51 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
 
 <div class="modal" id="spoke">
   <div class="sheet">
-    <h3 id="spokeTitle">Did you speak with them?</h3>
-    <p class="spokesub">Only count the ones who actually picked up and talked.</p>
-    <div id="spokeWho" style="display:none">
-      <label class="fl" for="spokeAcct">Who called you back?</label>
-      <input type="text" id="spokeAcct" autocomplete="off" placeholder="Name or account">
+
+    <!-- STEP 1 : voicemail or a live person -->
+    <div id="stepHow">
+      <h3 id="spokeTitle">How did that go?</h3>
+      <p class="spokesub" id="spokeSub">Every dial counts either way.</p>
+      <div class="bigchoice">
+        <button class="bc vm" id="choiceVm">
+          <b>Left a voicemail</b><i>Call already counted. You're done.</i>
+        </button>
+        <button class="bc live" id="choiceLive">
+          <b id="choiceLiveLabel">Spoke with a live person</b><i id="choiceLiveSub">Worth 10 points</i>
+        </button>
+      </div>
+      <div class="counts" id="spokeCounts"></div>
     </div>
-    <div class="counts" id="spokeCounts"></div>
-    <label class="fl">Who were they?</label>
-    <div class="seg" id="spokeSeg"></div>
-    <div class="acts">
-      <button class="no" id="spokeSkip">None of them</button>
+
+    <!-- STEP 2 : who were they, and did anything come of it -->
+    <div id="stepOutcome" hidden>
+      <h3>Nice. What came of it?</h3>
+      <p class="spokesub" id="convoCredit"></p>
+
+      <label class="fl">Who were they?</label>
+      <div class="seg" id="spokeSeg"></div>
+
+      <label class="fl">Did anything come of it?</label>
+      <button class="bc plain" id="justChat">
+        <b>Just a good conversation</b><i>That's the whole point. Tap here and you're done.</i>
+      </button>
+      <div id="chainOutcomes"></div>
+
+      <div id="chainDetail" hidden>
+        <label class="fl" for="chainAcct">Account or contact name</label>
+        <input type="text" id="chainAcct" autocomplete="off" placeholder="Who was it?">
+        <div id="chainNoteWrap" hidden>
+          <label class="fl" for="chainNote">What happened?</label>
+          <input type="text" id="chainNote" autocomplete="off" placeholder="In a few words">
+        </div>
+        <div class="err" id="chainErr"></div>
+        <div class="acts">
+          <button class="no" id="chainBack">Back</button>
+          <button class="go" id="chainSave">Log it</button>
+        </div>
+      </div>
     </div>
+
   </div>
 </div>
 
@@ -437,7 +489,8 @@ const CONFIG = {
     { action:"Referral",        pts:15 },
     { action:"Renewal",         pts:20 },
     { action:"Annual upgrade",  pts:30 },
-    { action:"System purchase", pts:60 }
+    { action:"System purchase", pts:60 },
+    { action:"Other outcome",   pts:10 }
   ],
   segments: [
     { name:"Current customer",  short:"Current",  mult:1 },
@@ -719,8 +772,8 @@ function renderLog(){
           <div class="cnt"><b>${p?p[a.track]:0}</b><span>Total</span></div>
         </div>
         ${a.action==="Conversation" ? `
-          <div class="convonote">Logged for you when you record a call.<br>
-            A conversation can never outnumber your dials.</div>
+          <div class="convonote">Logged when you record a call and say you
+            spoke with someone.</div>
           <button class="inbound" id="inboundBtn">They returned my voicemail</button>
         ` : `
         <div class="adders">
@@ -927,71 +980,145 @@ function renderAll(){ renderHeader(); renderLog(); renderBoard(); renderMe(); re
 
 
 /* ============================================================
-   THE FOLLOW-UP
-   After logging dials, ask how many actually picked up and talked.
-   This is the only route to a Conversation, which is what keeps
-   conversations from ever outnumbering calls.
+   THE CALL FLOW
+   One dial, one chain of questions, in the order the call happened:
+
+     log the dial  ->  voicemail or live person?
+                         voicemail -> done
+                         live      -> who were they, and what came of it?
+
+   Conversations and outcomes are only reachable through here, which is
+   what stops a conversation count from outrunning the dials behind it.
    ============================================================ */
-let SPOKE_MAX = 1, SPOKE_INBOUND = false, SPOKE_N = 0;
+let FLOW = { calls: 1, spoke: 0, inbound: false, outcome: null };
 
 function askSpoke(callQty, inbound){
-  SPOKE_MAX = Math.max(1, Math.min(callQty, 5));
-  SPOKE_INBOUND = !!inbound;
-  SPOKE_N = 0;
+  FLOW = { calls: Math.max(1, callQty||1), spoke: 0, inbound: !!inbound, outcome: null };
 
-  $("spokeTitle").textContent = inbound
-    ? "They called you back"
-    : (callQty === 1 ? "Did you speak with them?" : `How many of those ${callQty} did you speak with?`);
-  document.querySelector("#spoke .spokesub").textContent = inbound
-    ? "For when someone returns a voicemail you already logged. The dial was counted days ago, so this records the conversation on its own."
-    : "Only count the ones who picked up and actually talked.";
-  $("spokeSkip").style.display = inbound ? "none" : "";
+  $("stepHow").hidden    = !!inbound;   // a returned call skips straight to step 2
+  $("stepOutcome").hidden = !inbound;
+  $("chainDetail").hidden = true;
+  $("chainAcct").value = "";
+  $("chainNote").value = "";
+  $("chainErr").textContent = "";
 
-  // The returned-call route is the one way round the call-first rule, so it
-  // carries a name. Not to police anyone, just so it leaves a trace.
-  $("spokeWho").style.display = inbound ? "" : "none";
-  $("spokeAcct").value = "";
+  const cpts = ptsFor("Conversation");
 
-  // count buttons
-  const opts = inbound ? [1] : Array.from({length: SPOKE_MAX}, (_, i) => i + 1);
-  $("spokeCounts").innerHTML = opts.map(n =>
-    `<button class="cbtn" data-n="${n}">${inbound ? "Log it" : n}</button>`).join("");
+  if(!inbound){
+    const many = FLOW.calls > 1;
+    $("spokeTitle").textContent = many ? `You logged ${FLOW.calls} calls. How did they go?` : "How did that go?";
+    $("spokeSub").textContent   = many
+      ? "Every dial is already counted. This is just about who picked up."
+      : "The dial is already counted. This is just about who picked up.";
 
-  // segment picker, remembering the last choice
+    $("choiceVm").querySelector("b").textContent = many ? "All voicemails" : "Left a voicemail";
+    $("choiceVm").querySelector("i").textContent = many
+      ? "Calls already counted. You're done." : "Call already counted. You're done.";
+    $("choiceLiveLabel").textContent = many ? "Spoke with someone" : "Spoke with a live person";
+    $("choiceLiveSub").textContent   = `Worth ${cpts} points`;
+
+    // more than one dial: ask how many actually picked up
+    $("spokeCounts").innerHTML = many
+      ? `<div class="fl" style="width:100%;margin:14px 0 6px">How many did you speak with?</div>` +
+        Array.from({length: Math.min(FLOW.calls,5)}, (_,i)=>i+1)
+          .map(n=>`<button class="cbtn" data-n="${n}">${n}</button>`).join("")
+      : "";
+    $("spokeCounts").querySelectorAll(".cbtn").forEach(b=>b.onclick=()=>goOutcome(+b.dataset.n));
+    $("choiceLive").style.display = many ? "none" : "";
+  } else {
+    FLOW.spoke = 1;
+    prepOutcomeStep();
+  }
+
+  $("spoke").classList.add("on");
+  const sheet = document.querySelector("#spoke .sheet");
+  if(sheet) sheet.scrollTop = 0;
+}
+
+function goOutcome(n){
+  FLOW.spoke = n;
+  $("stepHow").hidden = true;
+  $("stepOutcome").hidden = false;
+  prepOutcomeStep();
+  const sheet = document.querySelector("#spoke .sheet");
+  if(sheet) sheet.scrollTop = 0;
+}
+
+function prepOutcomeStep(){
+  const cpts = ptsFor("Conversation");
+
+  $("convoCredit").textContent = FLOW.inbound
+    ? "A returned voicemail counts as a conversation."
+    : (FLOW.spoke > 1
+        ? `${FLOW.spoke} conversations, banked as soon as you finish here.`
+        : `The conversation is banked as soon as you finish here.`);
+
+  // who were they — drives the conversation multiplier
   $("spokeSeg").innerHTML = CONFIG.segments.map(g => {
-    const m = multFor(g.name);
-    const worth = Math.round(ptsFor("Conversation") * m);
-    return `
-    <button class="segb" data-seg="${g.name}" aria-pressed="${g.name===SEGMENT}">
-      <b>${g.short}</b><i>${worth} pts</i>
-    </button>`; }).join("");
+    const worth = Math.round(cpts * multFor(g.name));
+    return `<button class="segb" data-seg="${g.name}" aria-pressed="${g.name===SEGMENT}">
+      <b>${g.short}</b><i>${worth} pts</i></button>`; }).join("");
   $("spokeSeg").querySelectorAll(".segb").forEach(b => b.onclick = () => {
     SEGMENT = b.dataset.seg;
     $("spokeSeg").querySelectorAll(".segb").forEach(x =>
       x.setAttribute("aria-pressed", String(x.dataset.seg === SEGMENT)));
   });
 
-  $("spokeCounts").querySelectorAll(".cbtn").forEach(b => b.onclick = async () => {
-    const n = +b.dataset.n;
-    const who = $("spokeAcct").value.trim();
-    if(SPOKE_INBOUND && !who){
-      $("spokeAcct").focus();
-      $("spokeAcct").placeholder = "Needed \u2014 who called you back?";
-      return;
-    }
-    closeSpoke();
-    if(navigator.vibrate) navigator.vibrate([10,30,10]);
-    toast(n === 1 ? "Conversation logged" : `${n} conversations logged`);
-    await log("Conversation", n,
-      SPOKE_INBOUND ? { list_segment: SEGMENT, account_name: who }
-                    : { list_segment: SEGMENT });
+  // outcomes, cheapest first, Other last
+  const outs = CONFIG.outcomes.map(o=>({...o, pts: ptsFor(o.action)}))
+    .filter(o=>o.pts!=null)
+    .sort((a,b)=>a.pts-b.pts);
+  $("chainOutcomes").innerHTML = outs.map(o=>`
+    <button class="ob" data-o="${o.action}" aria-pressed="false">
+      <span class="on2">${o.action}</span><span class="op">+${o.pts}</span>
+    </button>`).join("");
+  $("chainOutcomes").querySelectorAll(".ob").forEach(b => b.onclick = () => {
+    FLOW.outcome = b.dataset.o;
+    $("chainOutcomes").querySelectorAll(".ob").forEach(x =>
+      x.setAttribute("aria-pressed", String(x === b)));
+    $("chainDetail").hidden = false;
+    $("chainNoteWrap").hidden = FLOW.outcome !== "Other outcome";
+    $("chainErr").textContent = "";
+    setTimeout(()=>$("chainAcct").focus(), 60);
   });
+}
 
-  $("spoke").classList.add("on");
-  // Start at the top of the sheet's own scroll, so the question and the
-  // count buttons are what you see first even on a short screen.
-  const sheet = document.querySelector("#spoke .sheet");
-  if(sheet) sheet.scrollTop = 0;
+/* Voicemail: the dial is already logged, so there is nothing left to do. */
+async function finishVoicemail(){
+  closeSpoke();
+  toast(FLOW.calls > 1 ? "Voicemails logged" : "Voicemail logged");
+}
+
+/* A conversation with nothing attached, which is most of them. */
+async function finishConversation(){
+  const n = Math.max(1, FLOW.spoke || 1);
+  closeSpoke();
+  if(navigator.vibrate) navigator.vibrate([10,30,10]);
+  toast(n === 1 ? "Conversation logged" : `${n} conversations logged`);
+  await log("Conversation", n, { list_segment: SEGMENT });
+}
+
+/* A conversation that led somewhere. */
+async function finishWithOutcome(){
+  const who  = $("chainAcct").value.trim();
+  const note = $("chainNote").value.trim();
+  if(!who){
+    $("chainErr").textContent = "Who was it? An account or contact name is needed.";
+    $("chainAcct").focus();
+    return;
+  }
+  if(FLOW.outcome === "Other outcome" && !note){
+    $("chainErr").textContent = "Say in a few words what happened.";
+    $("chainNote").focus();
+    return;
+  }
+  const n = Math.max(1, FLOW.spoke || 1);
+  const outcome = FLOW.outcome;
+  closeSpoke();
+  if(navigator.vibrate) navigator.vibrate([12,40,12]);
+  toast(`${outcome} logged, pending`, true);
+  await log("Conversation", n, { list_segment: SEGMENT });
+  await log(outcome, 1, note ? { account_name: who, note } : { account_name: who });
 }
 
 function closeSpoke(){ $("spoke").classList.remove("on"); }
@@ -1293,7 +1420,16 @@ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",String(x===t)));
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on", v.id===t.dataset.v));
 });
-$("spokeSkip").onclick=closeSpoke;
+$("choiceVm").onclick=finishVoicemail;
+$("choiceLive").onclick=()=>goOutcome(1);
+$("justChat").onclick=finishConversation;
+$("chainSave").onclick=finishWithOutcome;
+$("chainBack").onclick=()=>{
+  FLOW.outcome=null;
+  $("chainDetail").hidden=true;
+  $("chainOutcomes").querySelectorAll(".ob").forEach(x=>x.setAttribute("aria-pressed","false"));
+};
+$("chainAcct").onkeydown=e=>{ if(e.key==="Enter") finishWithOutcome(); };
 $("spoke").onclick=e=>{ if(e.target===$("spoke")) closeSpoke(); };
 $("mCancel").onclick=closeOutcome;
 $("mSave").onclick=saveOutcome;
