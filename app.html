@@ -87,7 +87,19 @@ input[type=tel]:focus{outline:2px solid var(--manila);outline-offset:-2px}
 .bc.plain b{color:var(--dial)}
 .bc.plain:active{background:var(--dial)}
 .bc.plain:active b,.bc.plain:active i{color:#fff}
-#stepOutcome[hidden],#stepHow[hidden],#chainDetail[hidden],#chainNoteWrap[hidden]{display:none}
+.stp[hidden],#chainNoteWrap[hidden]{display:none}
+/* One question per screen, so the progress dots tell you where you are. */
+.steps{display:flex;gap:5px;margin-bottom:14px}
+.steps i{flex:1;height:3px;background:var(--ink-3);border-radius:99px;display:block}
+.steps i.done{background:var(--dial)}
+.steps i.now{background:var(--manila)}
+.backlink{display:block;width:100%;margin-top:14px;padding:10px;
+  font-family:var(--data);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);border:none;background:none;text-decoration:underline}
+.bc.seg-choice b{color:var(--paper)}
+.bc.seg-choice i{color:var(--manila);font-weight:600}
+.bc.seg-choice:active{background:var(--violet);border-color:var(--violet)}
+.bc.seg-choice:active b,.bc.seg-choice:active i{color:#fff}
 .pinerr{color:var(--postal);font-size:14px;margin-top:12px;min-height:1.2em}
 .chip{margin-left:auto;text-align:right}
 .chip .r{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;color:var(--paper)}
@@ -364,7 +376,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v19</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v20</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -389,47 +401,55 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
 <div class="modal" id="spoke">
   <div class="sheet">
 
-    <!-- STEP 1 : voicemail or a live person -->
-    <div id="stepHow">
+    <div class="steps" id="stepDots"></div>
+
+    <!-- 1 : voicemail or a live person -->
+    <div class="stp" id="stepHow">
       <h3 id="spokeTitle">How did that go?</h3>
-      <p class="spokesub" id="spokeSub">Every dial counts either way.</p>
+      <p class="spokesub" id="spokeSub">The dial is already counted.</p>
       <div class="bigchoice">
         <button class="bc vm" id="choiceVm">
-          <b>Left a voicemail</b><i>Call already counted. You're done.</i>
+          <b>Left a voicemail</b><i>Call counted. You're done.</i>
         </button>
         <button class="bc live" id="choiceLive">
-          <b id="choiceLiveLabel">Spoke with a live person</b><i id="choiceLiveSub">Worth 10 points</i>
+          <b id="choiceLiveLabel">Spoke with a live person</b><i id="choiceLiveSub"></i>
         </button>
       </div>
       <div class="counts" id="spokeCounts"></div>
     </div>
 
-    <!-- STEP 2 : who were they, and did anything come of it -->
-    <div id="stepOutcome" hidden>
-      <h3>Nice. What came of it?</h3>
+    <!-- 2 : who were they -->
+    <div class="stp" id="stepWho" hidden>
+      <h3>Who were they?</h3>
+      <p class="spokesub">Harder lists are worth more.</p>
+      <div class="bigchoice" id="whoChoices"></div>
+      <button class="backlink" data-back="stepHow">Back</button>
+    </div>
+
+    <!-- 3 : did anything come of it -->
+    <div class="stp" id="stepOutcome" hidden>
+      <h3>Did anything come of it?</h3>
       <p class="spokesub" id="convoCredit"></p>
-
-      <label class="fl">Who were they?</label>
-      <div class="seg" id="spokeSeg"></div>
-
-      <label class="fl">Did anything come of it?</label>
       <button class="bc plain" id="justChat">
         <b>Just a good conversation</b><i>That's the whole point. Tap here and you're done.</i>
       </button>
       <div id="chainOutcomes"></div>
+      <button class="backlink" data-back="stepWho">Back</button>
+    </div>
 
-      <div id="chainDetail" hidden>
-        <label class="fl" for="chainAcct">Account or contact name</label>
-        <input type="text" id="chainAcct" autocomplete="off" placeholder="Who was it?">
-        <div id="chainNoteWrap" hidden>
-          <label class="fl" for="chainNote">What happened?</label>
-          <input type="text" id="chainNote" autocomplete="off" placeholder="In a few words">
-        </div>
-        <div class="err" id="chainErr"></div>
-        <div class="acts">
-          <button class="no" id="chainBack">Back</button>
-          <button class="go" id="chainSave">Log it</button>
-        </div>
+    <!-- 4 : who was it -->
+    <div class="stp" id="stepDetail" hidden>
+      <h3 id="detailTitle">Who was it?</h3>
+      <p class="spokesub" id="detailSub"></p>
+      <input type="text" id="chainAcct" autocomplete="off" placeholder="Account or contact name">
+      <div id="chainNoteWrap" hidden>
+        <label class="fl" for="chainNote">What happened?</label>
+        <input type="text" id="chainNote" autocomplete="off" placeholder="In a few words">
+      </div>
+      <div class="err" id="chainErr"></div>
+      <div class="acts">
+        <button class="no" data-back="stepOutcome">Back</button>
+        <button class="go" id="chainSave">Log it</button>
       </div>
     </div>
 
@@ -964,115 +984,113 @@ function renderAll(){ renderHeader(); renderLog(); renderBoard(); renderMe(); re
 
 /* ============================================================
    THE CALL FLOW
-   One dial, one chain of questions, in the order the call happened:
+   One question per screen, in the order the call actually happened:
 
-     log the dial  ->  voicemail or live person?
-                         voicemail -> done
-                         live      -> who were they, and what came of it?
+     log the dial -> voicemail or live person?
+                       voicemail -> done
+                       live      -> who were they?
+                                 -> did anything come of it?
+                                 -> who was it? (only if it did)
 
-   Conversations and outcomes are only reachable through here, which is
-   what stops a conversation count from outrunning the dials behind it.
+   Conversations and outcomes are reachable only through here, so a
+   conversation count can never outrun the dials behind it.
    ============================================================ */
 let FLOW = { calls: 1, spoke: 0, inbound: false, outcome: null };
 
+const STEPS = ["stepHow","stepWho","stepOutcome","stepDetail"];
+
+function showStep(id){
+  STEPS.forEach(x => { const el = $(x); if(el) el.hidden = (x !== id); });
+
+  // progress dots, skipping step 1 on the returned-voicemail path
+  const seq = FLOW.inbound ? ["stepWho","stepOutcome","stepDetail"] : STEPS;
+  const at  = seq.indexOf(id);
+  $("stepDots").innerHTML = seq.map((_,i)=>
+    `<i class="${i<at?"done":i===at?"now":""}"></i>`).join("");
+
+  const sheet = document.querySelector("#spoke .sheet");
+  if(sheet) sheet.scrollTop = 0;
+}
+
 function askSpoke(callQty, inbound){
   FLOW = { calls: Math.max(1, callQty||1), spoke: 0, inbound: !!inbound, outcome: null };
-
-  $("stepHow").hidden    = !!inbound;   // a returned call skips straight to step 2
-  $("stepOutcome").hidden = !inbound;
-  $("chainDetail").hidden = true;
   $("chainAcct").value = "";
   $("chainNote").value = "";
   $("chainErr").textContent = "";
 
-  const cpts = ptsFor("Conversation");
-
-  if(!inbound){
+  if(inbound){
+    FLOW.spoke = 1;
+    prepWho();
+    showStep("stepWho");
+  } else {
     const many = FLOW.calls > 1;
-    $("spokeTitle").textContent = many ? `You logged ${FLOW.calls} calls. How did they go?` : "How did that go?";
-    $("spokeSub").textContent   = many
-      ? "Every dial is already counted. This is just about who picked up."
-      : "The dial is already counted. This is just about who picked up.";
-
+    $("spokeTitle").textContent = many ? `How did those ${FLOW.calls} go?` : "How did that go?";
+    $("spokeSub").textContent   = many ? "The dials are already counted." : "The dial is already counted.";
     $("choiceVm").querySelector("b").textContent = many ? "All voicemails" : "Left a voicemail";
-    $("choiceVm").querySelector("i").textContent = many
-      ? "Calls already counted. You're done." : "Call already counted. You're done.";
+    $("choiceVm").querySelector("i").textContent = many ? "Calls counted. You're done." : "Call counted. You're done.";
     $("choiceLiveLabel").textContent = many ? "Spoke with someone" : "Spoke with a live person";
-    $("choiceLiveSub").textContent   = `Worth ${cpts} points`;
+    $("choiceLiveSub").textContent   = `Worth ${ptsFor("Conversation")} points`;
 
-    // more than one dial: ask how many actually picked up
     $("spokeCounts").innerHTML = many
       ? `<div class="fl" style="width:100%;margin:14px 0 6px">How many did you speak with?</div>` +
         Array.from({length: Math.min(FLOW.calls,5)}, (_,i)=>i+1)
           .map(n=>`<button class="cbtn" data-n="${n}">${n}</button>`).join("")
       : "";
-    $("spokeCounts").querySelectorAll(".cbtn").forEach(b=>b.onclick=()=>goOutcome(+b.dataset.n));
+    $("spokeCounts").querySelectorAll(".cbtn").forEach(b=>b.onclick=()=>{
+      FLOW.spoke = +b.dataset.n; prepWho(); showStep("stepWho");
+    });
     $("choiceLive").style.display = many ? "none" : "";
-  } else {
-    FLOW.spoke = 1;
-    prepOutcomeStep();
+    showStep("stepHow");
   }
 
   $("spoke").classList.add("on");
-  const sheet = document.querySelector("#spoke .sheet");
-  if(sheet) sheet.scrollTop = 0;
 }
 
-function goOutcome(n){
-  FLOW.spoke = n;
-  $("stepHow").hidden = true;
-  $("stepOutcome").hidden = false;
-  prepOutcomeStep();
-  const sheet = document.querySelector("#spoke .sheet");
-  if(sheet) sheet.scrollTop = 0;
-}
-
-function prepOutcomeStep(){
+/* --- step 2 : who were they --- */
+function prepWho(){
   const cpts = ptsFor("Conversation");
-
-  $("convoCredit").textContent = FLOW.inbound
-    ? "A returned voicemail counts as a conversation."
-    : (FLOW.spoke > 1
-        ? `${FLOW.spoke} conversations, banked as soon as you finish here.`
-        : `The conversation is banked as soon as you finish here.`);
-
-  // who were they — drives the conversation multiplier
-  $("spokeSeg").innerHTML = CONFIG.segments.map(g => {
+  $("whoChoices").innerHTML = CONFIG.segments.map(g => {
     const worth = Math.round(cpts * multFor(g.name));
-    return `<button class="segb" data-seg="${g.name}" aria-pressed="${g.name===SEGMENT}">
-      <b>${g.short}</b><i>${worth} pts</i></button>`; }).join("");
-  $("spokeSeg").querySelectorAll(".segb").forEach(b => b.onclick = () => {
+    return `<button class="bc seg-choice" data-seg="${g.name}">
+      <b>${g.name}</b><i>${worth} points${FLOW.spoke>1?" each":""}</i>
+    </button>`; }).join("");
+  $("whoChoices").querySelectorAll(".seg-choice").forEach(b => b.onclick = () => {
     SEGMENT = b.dataset.seg;
-    $("spokeSeg").querySelectorAll(".segb").forEach(x =>
-      x.setAttribute("aria-pressed", String(x.dataset.seg === SEGMENT)));
+    prepOutcome();
+    showStep("stepOutcome");
   });
+}
 
-  // outcomes, cheapest first, Other last
+/* --- step 3 : did anything come of it --- */
+function prepOutcome(){
+  const worth = Math.round(ptsFor("Conversation") * multFor(SEGMENT)) * Math.max(1, FLOW.spoke);
+  $("convoCredit").textContent = FLOW.spoke > 1
+    ? `${FLOW.spoke} conversations, ${worth} points, banked either way.`
+    : `${worth} points banked either way.`;
+
   const outs = CONFIG.outcomes.map(o=>({...o, pts: ptsFor(o.action)}))
-    .filter(o=>o.pts!=null)
-    .sort((a,b)=>a.pts-b.pts);
+    .filter(o=>o.pts!=null).sort((a,b)=>a.pts-b.pts);
   $("chainOutcomes").innerHTML = outs.map(o=>`
-    <button class="ob" data-o="${o.action}" aria-pressed="false">
+    <button class="ob" data-o="${o.action}">
       <span class="on2">${o.action}</span><span class="op">+${o.pts}</span>
     </button>`).join("");
   $("chainOutcomes").querySelectorAll(".ob").forEach(b => b.onclick = () => {
     FLOW.outcome = b.dataset.o;
-    $("chainOutcomes").querySelectorAll(".ob").forEach(x =>
-      x.setAttribute("aria-pressed", String(x === b)));
-    $("chainDetail").hidden = false;
+    $("detailTitle").textContent = "Who was it?";
+    $("detailSub").textContent = `${FLOW.outcome}, +${ptsFor(FLOW.outcome)} once confirmed.`;
     $("chainNoteWrap").hidden = FLOW.outcome !== "Other outcome";
     $("chainErr").textContent = "";
-    setTimeout(()=>$("chainAcct").focus(), 60);
+    showStep("stepDetail");
+    setTimeout(()=>$("chainAcct").focus(), 80);
   });
 }
 
-/* Voicemail: the dial is already logged, so there is nothing left to do. */
+/* --- endings --- */
 async function finishVoicemail(){
   closeSpoke();
   toast(FLOW.calls > 1 ? "Voicemails logged" : "Voicemail logged");
 }
 
-/* A conversation with nothing attached, which is most of them. */
 async function finishConversation(){
   const n = Math.max(1, FLOW.spoke || 1);
   closeSpoke();
@@ -1081,12 +1099,11 @@ async function finishConversation(){
   await log("Conversation", n, { list_segment: SEGMENT });
 }
 
-/* A conversation that led somewhere. */
 async function finishWithOutcome(){
   const who  = $("chainAcct").value.trim();
   const note = $("chainNote").value.trim();
   if(!who){
-    $("chainErr").textContent = "Who was it? An account or contact name is needed.";
+    $("chainErr").textContent = "An account or contact name is needed.";
     $("chainAcct").focus();
     return;
   }
@@ -1365,14 +1382,10 @@ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on", v.id===t.dataset.v));
 });
 $("choiceVm").onclick=finishVoicemail;
-$("choiceLive").onclick=()=>goOutcome(1);
+$("choiceLive").onclick=()=>{ FLOW.spoke=1; prepWho(); showStep("stepWho"); };
 $("justChat").onclick=finishConversation;
 $("chainSave").onclick=finishWithOutcome;
-$("chainBack").onclick=()=>{
-  FLOW.outcome=null;
-  $("chainDetail").hidden=true;
-  $("chainOutcomes").querySelectorAll(".ob").forEach(x=>x.setAttribute("aria-pressed","false"));
-};
+document.querySelectorAll("[data-back]").forEach(b=>b.onclick=()=>showStep(b.dataset.back));
 $("chainAcct").onkeydown=e=>{ if(e.key==="Enter") finishWithOutcome(); };
 $("spoke").onclick=e=>{ if(e.target===$("spoke")) closeSpoke(); };
 $("notme").onclick=()=>{ store.del("me"); ME=null; ADMIN_PIN=null; location.reload(); };
