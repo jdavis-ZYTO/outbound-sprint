@@ -58,6 +58,17 @@ input[type=tel]:focus{outline:2px solid var(--manila);outline-offset:-2px}
 .pinwrap .go{width:100%;margin-top:12px;padding:16px;background:var(--manila);color:#fff;border-radius:4px;
   font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.07em;text-transform:uppercase}
 .pinwrap .go:disabled{opacity:.35}
+.spokesub{font-size:12px;color:var(--dim);margin:-6px 0 14px;line-height:1.35}
+.counts{display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.cbtn{flex:1 1 0;min-width:56px;padding:18px 0;background:var(--ink-2);border:1px solid var(--ink-3);
+  border-radius:4px;font-family:var(--display);font-weight:700;font-size:22px;color:var(--paper);
+  transition:transform .08s ease}
+.cbtn:active{transform:scale(.94);background:var(--violet);color:#fff;border-color:var(--violet)}
+.convonote{font-family:var(--data);font-size:10px;letter-spacing:.08em;color:var(--dim);
+  text-transform:uppercase;margin-top:12px;line-height:1.5}
+.inbound{margin-top:10px;width:100%;padding:11px;border:1px solid var(--ink-3);border-radius:4px;
+  font-family:var(--data);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.inbound:active{background:var(--ink-3);color:var(--paper)}
 .pinerr{color:var(--postal);font-size:14px;margin-top:12px;min-height:1.2em}
 .chip{margin-left:auto;text-align:right}
 .chip .r{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;color:var(--paper)}
@@ -269,6 +280,8 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
   font-size:11px;letter-spacing:.1em;text-transform:uppercase;text-align:center;display:none}
 .banner.on{display:block}
 .foot{padding:18px 16px 26px;text-align:center}
+.foot .ver{font-family:var(--data);font-size:9px;letter-spacing:.16em;
+  color:var(--ink-3);margin-top:8px}
 .foot button{font-family:var(--data);font-size:11px;letter-spacing:.14em;
   color:var(--dim);text-transform:uppercase;text-decoration:underline}
 .empty{color:var(--dim);font-size:14px;text-align:center;padding:26px 16px;background:var(--ink-2)}
@@ -315,7 +328,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v13</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -345,6 +358,19 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <div class="acts">
       <button class="no" id="mCancel">Cancel</button>
       <button class="go" id="mSave" disabled>Log it</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="spoke">
+  <div class="sheet">
+    <h3 id="spokeTitle">Did you speak with them?</h3>
+    <p class="spokesub">Only count the ones who actually picked up and talked.</p>
+    <div class="counts" id="spokeCounts"></div>
+    <label class="fl">Who were they?</label>
+    <div class="seg" id="spokeSeg"></div>
+    <div class="acts">
+      <button class="no" id="spokeSkip">None of them</button>
     </div>
   </div>
 </div>
@@ -646,28 +672,29 @@ function renderLog(){
           </div>
           <div class="cnt"><b>${p?p[a.track]:0}</b><span>Total</span></div>
         </div>
+        ${a.action==="Conversation" ? `
+          <div class="convonote">Logged for you when you record a call.<br>
+            A conversation can never outnumber your dials.</div>
+          <button class="inbound" id="inboundBtn">They called me instead</button>
+        ` : `
         <div class="adders">
           <button class="add" data-act="${a.action}" data-n="1">+1</button>
           <button class="add" data-act="${a.action}" data-n="5">+5</button>
-        </div>
-        ${a.action==="Conversation" ? `
-          <div class="seghint">Who did you talk to?</div>
-          <div class="seg">${CONFIG.segments.map(g=>`
-            <button class="segb" data-seg="${g.name}" aria-pressed="${g.name===SEGMENT}">
-              <b>${g.short}</b><i>${g.mult>1?"×"+g.mult+" points":"normal"}</i>
-            </button>`).join("")}</div>
-          <div class="seghint why">Inactive customers and leads are harder calls, so those conversations score double.</div>` : ""}
+        </div>`}
       </div>`).join("")
     + `<button class="outcomebtn" id="openOutcome">Log an outcome</button>`;
 
-  $("vLog").querySelectorAll(".add").forEach(b=>b.onclick=()=>{
+  $("vLog").querySelectorAll(".add").forEach(b=>b.onclick=async()=>{
     const act=b.dataset.act, n=+b.dataset.n;
-    const extra = act==="Conversation" ? {list_segment:SEGMENT} : {};
     if(navigator.vibrate) navigator.vibrate(12);
     toast(`+${n} ${act.toLowerCase()}`);
-    log(act, n, extra);
+    await log(act, n);
+    // Dials are the gateway: conversations are only ever logged as a
+    // follow-up to a call, so they can't outnumber them.
+    if(act==="Call attempt") askSpoke(n);
   });
-  $("vLog").querySelectorAll(".segb").forEach(b=>b.onclick=()=>{ SEGMENT=b.dataset.seg; renderLog(); });
+  const inb = $("inboundBtn");
+  if(inb) inb.onclick = ()=>askSpoke(1, true);
   $("openOutcome").onclick=openOutcome;
 }
 
@@ -851,6 +878,57 @@ function renderHeader(){
 }
 
 function renderAll(){ renderHeader(); renderLog(); renderBoard(); renderMe(); renderShelf(); }
+
+
+/* ============================================================
+   THE FOLLOW-UP
+   After logging dials, ask how many actually picked up and talked.
+   This is the only route to a Conversation, which is what keeps
+   conversations from ever outnumbering calls.
+   ============================================================ */
+let SPOKE_MAX = 1, SPOKE_INBOUND = false, SPOKE_N = 0;
+
+function askSpoke(callQty, inbound){
+  SPOKE_MAX = Math.max(1, Math.min(callQty, 5));
+  SPOKE_INBOUND = !!inbound;
+  SPOKE_N = 0;
+
+  $("spokeTitle").textContent = inbound
+    ? "They called you"
+    : (callQty === 1 ? "Did you speak with them?" : `How many of those ${callQty} did you speak with?`);
+  document.querySelector("#spoke .spokesub").textContent = inbound
+    ? "Logging a conversation without a dial."
+    : "Only count the ones who picked up and actually talked.";
+  $("spokeSkip").style.display = inbound ? "none" : "";
+
+  // count buttons
+  const opts = inbound ? [1] : Array.from({length: SPOKE_MAX}, (_, i) => i + 1);
+  $("spokeCounts").innerHTML = opts.map(n =>
+    `<button class="cbtn" data-n="${n}">${inbound ? "Log it" : n}</button>`).join("");
+
+  // segment picker, remembering the last choice
+  $("spokeSeg").innerHTML = CONFIG.segments.map(g => `
+    <button class="segb" data-seg="${g.name}" aria-pressed="${g.name===SEGMENT}">
+      <b>${g.short}</b><i>${g.mult>1?"×"+g.mult+" points":"normal"}</i>
+    </button>`).join("");
+  $("spokeSeg").querySelectorAll(".segb").forEach(b => b.onclick = () => {
+    SEGMENT = b.dataset.seg;
+    $("spokeSeg").querySelectorAll(".segb").forEach(x =>
+      x.setAttribute("aria-pressed", String(x.dataset.seg === SEGMENT)));
+  });
+
+  $("spokeCounts").querySelectorAll(".cbtn").forEach(b => b.onclick = async () => {
+    const n = +b.dataset.n;
+    closeSpoke();
+    if(navigator.vibrate) navigator.vibrate([10,30,10]);
+    toast(n === 1 ? "Conversation logged" : `${n} conversations logged`);
+    await log("Conversation", n, { list_segment: SEGMENT });
+  });
+
+  $("spoke").classList.add("on");
+}
+
+function closeSpoke(){ $("spoke").classList.remove("on"); }
 
 /* ============================================================
    OUTCOME MODAL
@@ -1144,6 +1222,8 @@ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",String(x===t)));
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on", v.id===t.dataset.v));
 });
+$("spokeSkip").onclick=closeSpoke;
+$("spoke").onclick=e=>{ if(e.target===$("spoke")) closeSpoke(); };
 $("mCancel").onclick=closeOutcome;
 $("mSave").onclick=saveOutcome;
 $("modal").onclick=e=>{ if(e.target===$("modal")) closeOutcome(); };
