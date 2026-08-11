@@ -266,6 +266,19 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
   letter-spacing:.12em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
 .arow .abtn:active{background:var(--ink-3);color:var(--paper)}
 .arow .abtn.go{border-color:var(--dial);color:var(--dial)}
+.chrow{display:flex;gap:8px}
+.chrow input{flex:0 0 40%}
+.chrow select{flex:1 1 auto;padding:14px;background:#fff;border:1px solid var(--ink-3);
+  border-radius:4px;color:var(--paper);font:inherit;font-size:16px}
+.reward{background:#F4F7FB;border-left:3px solid var(--dial);padding:10px 12px;
+  margin:10px 0;font-size:14px;font-weight:600;color:var(--paper);border-radius:0 4px 4px 0}
+.bigstart{width:100%;margin-top:14px;padding:15px;border:none;border-radius:4px;
+  background:var(--violet);color:#fff;font-family:var(--display);font-weight:700;
+  font-size:17px;letter-spacing:.06em;text-transform:uppercase}
+.abtn.stopch{width:100%;margin-top:10px;padding:12px;border:1.5px solid var(--postal);
+  color:var(--postal);border-radius:4px;font-family:var(--data);font-size:11px;
+  letter-spacing:.14em;text-transform:uppercase}
+.abtn.stopch:active{background:var(--postal);color:#fff}
 .arow .sm{font-family:var(--data);font-size:10px;color:var(--dim);display:block;margin-top:2px}
 .undo{width:100%;padding:13px;border:1px solid var(--ink-3);color:var(--dim);
   font-family:var(--data);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-top:4px}
@@ -391,7 +404,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v23</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v25</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -1273,21 +1286,23 @@ async function undoLast(){
    Every action is re-checked inside the database.
    ============================================================ */
 let ADMIN_PIN = null;
-let ADMIN = { pins:[], pending:[], recent:[] };
+let ADMIN = { pins:[], pending:[], recent:[], live:null };
 
 async function adminCall(fn, args){
   return sb("rpc/"+fn, { method:"POST", body: JSON.stringify(args) });
 }
 
 async function adminLoad(){
-  const [pins, pending, recent] = await Promise.all([
+  const [pins, pending, recent, live] = await Promise.all([
     adminCall("admin_list_pins", { p_admin_pin: ADMIN_PIN }),
     adminCall("admin_pending",   { p_admin_pin: ADMIN_PIN }),
-    adminCall("admin_recent",    { p_admin_pin: ADMIN_PIN })
+    adminCall("admin_recent",    { p_admin_pin: ADMIN_PIN }),
+    sb("challenge_progress?select=*").catch(()=>[])
   ]);
   ADMIN.pins = pins || [];
   ADMIN.pending = pending || [];
   ADMIN.recent = recent || [];
+  ADMIN.live = (live && live[0]) || null;
 }
 
 function renderAdminLock(msg){
@@ -1339,7 +1354,43 @@ function renderAdmin(){
       <button class="abtn" data-reset="${p.name}">Reset</button>
     </div>`).join("");
 
-  $("vAdmin").innerHTML = `
+  const live = ADMIN.live;
+  const challengePanel = live ? `
+    <div class="acard" style="border-left-color:var(--violet)">
+      <h4>${live.title}</h4>
+      <div class="hint">${live.progress} of ${live.target} ${live.metric}${
+        live.seconds_left ? " · " + Math.ceil(live.seconds_left/60) + " min left" : ""}</div>
+      <div class="reward">${live.reward || ""}</div>
+      <button class="abtn stopch" id="stopChallenge">End the challenge</button>
+    </div>`
+  : `
+    <div class="acard" style="border-left-color:var(--violet)">
+      <h4>Set a challenge</h4>
+      <div class="hint">A side quest. It doesn't change anyone's points or tokens</div>
+
+      <label class="fl">Hit this many</label>
+      <div class="chrow">
+        <input type="tel" id="chTarget" inputmode="numeric" placeholder="300">
+        <select id="chMetric">
+          <option value="calls">outbound calls</option>
+          <option value="convos">conversations</option>
+          <option value="letters">letters</option>
+          <option value="outcomes">outcomes</option>
+          <option value="points">points</option>
+        </select>
+      </div>
+
+      <label class="fl">In this many minutes</label>
+      <input type="tel" id="chMins" inputmode="numeric" placeholder="60">
+
+      <label class="fl">And everyone gets</label>
+      <input type="text" id="chReward" placeholder="Lunch is on me">
+
+      <div class="err" id="chErr"></div>
+      <button class="abtn go bigstart" id="startChallenge">Start it</button>
+    </div>`;
+
+  $("vAdmin").innerHTML = challengePanel + `
     <div class="acard">
       <h4>Pending outcomes${ADMIN.pending.length?` (${ADMIN.pending.length})`:""}</h4>
       <div class="hint">Check the account against Salesforce, then confirm</div>
@@ -1407,7 +1458,48 @@ function renderAdmin(){
     }catch(err){ b.disabled=false; b.textContent="Fix qty"; toast("Couldn't change that"); }
   });
 
-  $("adminLock").onclick=()=>{ ADMIN_PIN=null; ADMIN={pins:[],pending:[],recent:[]}; renderAdminLock(); };
+  const stopBtn = $("stopChallenge");
+  if(stopBtn) stopBtn.onclick = async ()=>{
+    stopBtn.disabled = true; stopBtn.textContent = "…";
+    try{
+      await adminCall("admin_stop_challenge", { p_admin_pin: ADMIN_PIN });
+      toast("Challenge stopped");
+      await adminLoad(); renderAdmin();
+    }catch(e){ stopBtn.disabled=false; stopBtn.textContent="Stop it now"; toast("Couldn't stop it"); }
+  };
+
+  const startBtn = $("startChallenge");
+  if(startBtn) startBtn.onclick = async ()=>{
+    const target = parseInt($("chTarget").value, 10);
+    const mins   = parseInt($("chMins").value, 10);
+    const metric = $("chMetric").value;
+    const reward = $("chReward").value.trim();
+
+    if(isNaN(target) || target < 1){ $("chErr").textContent = "How many?"; $("chTarget").focus(); return; }
+    if(isNaN(mins) || mins < 1){ $("chErr").textContent = "How long?"; $("chMins").focus(); return; }
+    if(!reward){ $("chErr").textContent = "What do they get?"; $("chReward").focus(); return; }
+
+    const label = { calls:"outbound calls", convos:"conversations", letters:"letters",
+                    outcomes:"outcomes", points:"points" }[metric];
+    startBtn.disabled = true; startBtn.textContent = "…";
+    try{
+      await adminCall("admin_start_challenge", {
+        p_admin_pin: ADMIN_PIN,
+        p_kind: "team_target",
+        p_minutes: mins,
+        p_config: { metric, target, reward },
+        p_title: `${target} ${label}`,
+        p_subtitle: `In the next ${mins} minutes`
+      });
+      toast("Challenge is live");
+      await adminLoad(); renderAdmin();
+    }catch(e){
+      startBtn.disabled=false; startBtn.textContent="Start it";
+      $("chErr").textContent = "Couldn't start it. Try again.";
+    }
+  };
+
+  $("adminLock").onclick=()=>{ ADMIN_PIN=null; ADMIN={pins:[],pending:[],recent:[],live:null}; renderAdminLock(); };
 }
 
 async function gate(){
