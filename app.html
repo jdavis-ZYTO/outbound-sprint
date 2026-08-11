@@ -101,7 +101,22 @@ input[type=tel]:focus{outline:2px solid var(--manila);outline-offset:-2px}
 .bc.seg-choice:active{background:var(--violet);border-color:var(--violet)}
 .bc.seg-choice:active b,.bc.seg-choice:active i{color:#fff}
 .pinerr{color:var(--postal);font-size:14px;margin-top:12px;min-height:1.2em}
-.chip{margin-left:auto;text-align:right}
+.chip{margin-left:auto;text-align:right;position:relative}
+/* The counter is the payoff, so it gets room to move. */
+.chip .r{transition:color .25s ease}
+.chip .r.rising{color:var(--dial)}
+@keyframes floatUp{
+  0%  {opacity:0;transform:translate(-50%,6px) scale(.9)}
+  18% {opacity:1;transform:translate(-50%,-6px) scale(1.06)}
+  70% {opacity:1;transform:translate(-50%,-26px) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-42px) scale(.96)}
+}
+.burst{position:absolute;left:50%;top:-4px;pointer-events:none;white-space:nowrap;
+  font-family:var(--display);font-weight:700;font-size:26px;color:var(--dial);opacity:0}
+.burst.go{animation:floatUp 1.5s cubic-bezier(.2,.8,.3,1) forwards}
+.burst.pend{color:var(--postal);font-size:19px}
+@keyframes ringPulse{0%{box-shadow:0 0 0 0 rgba(0,147,124,.35)}100%{box-shadow:0 0 0 22px rgba(0,147,124,0)}}
+.hdr.pulse{animation:ringPulse .9s ease-out}
 .chip .r{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;color:var(--paper)}
 .chip .l{font-family:var(--data);font-size:9px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase}
 
@@ -355,8 +370,9 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
       <div class="mark" id="whoami">Outbound Sprint</div>
     </div>
     <div class="chip">
-      <div class="r" id="myRank">—</div>
-      <div class="l" id="myRankLbl">Your rank</div>
+      <div class="r" id="myRank">0</div>
+      <div class="l" id="myRankLbl">points</div>
+      <div class="burst" id="burst"></div>
     </div>
   </header>
 
@@ -376,7 +392,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v20</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v21</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -726,9 +742,9 @@ async function log(action, qty, extra={}){
 function bump(action, qty){
   const p = me(); if(!p) return;
   const a = CONFIG.activities.find(x=>x.action===action);
-  if(a){ p[a.track] += qty; p.points += a.pts*qty; }
+  if(a){ p[a.track] += qty; p.points += (ptsFor(action)||0)*qty; }
   renderLog();
-  // Pop the number that just changed, so the tap is visibly acknowledged.
+  // Pop the card count too, so both numbers move together.
   if(a){
     const el = document.querySelector(`#vLog .card.${a.track} .cnt b`);
     if(el){ el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
@@ -789,12 +805,17 @@ function renderLog(){
 
   $("vLog").querySelectorAll(".add").forEach(b=>b.onclick=async()=>{
     const act=b.dataset.act, n=+b.dataset.n;
-    if(navigator.vibrate) navigator.vibrate(12);
-    toast(`+${n} ${act.toLowerCase()}`);
+    if(navigator.vibrate) navigator.vibrate(10);
+    if(act==="Call attempt"){
+      // Held, not logged. Everything for this call is written at the end of
+      // the flow so the points arrive as one visible event.
+      askSpoke(n);
+      return;
+    }
+    const { earned } = valueOf(0, 0, SEGMENT, null);
+    const pts = n * (ptsFor(act) || 0);
+    celebrate(pts, 0);
     await log(act, n);
-    // Dials are the gateway: conversations are only ever logged as a
-    // follow-up to a call, so they can't outnumber them.
-    if(act==="Call attempt") askSpoke(n);
   });
   const inb = $("inboundBtn");
   if(inb) inb.onclick = ()=>askSpoke(1, true);
@@ -967,8 +988,14 @@ function renderHeader(){
   if(ME){ who.textContent=ME.display_name; who.classList.add("named"); }
   else  { who.textContent="Outbound Sprint"; who.classList.remove("named"); }
   const pacer = p && p.competing===false;
-  $("myRank").textContent = p ? (pacer?"◆":p.rank) : "—";
-  $("myRankLbl").textContent = p ? `${p.points} pts` : "Your rank";
+
+  // Points lead, rank sits underneath. The number people watch should be the
+  // one that moves when they log something.
+  const target = p ? p.points : 0;
+  if(!ANIMATING) $("myRank").textContent = target;
+  $("myRankLbl").textContent = !p ? "points"
+    : pacer ? "points · pacesetter"
+    : `points · rank ${p.rank}`;
   const s=new Date(CONFIG.start+"T00:00:00"), e=new Date(CONFIG.end+"T23:59:59"), n=new Date();
   const wd = (from,to)=>{ let c=0; const d=new Date(from.getFullYear(),from.getMonth(),from.getDate());
     const z=new Date(to.getFullYear(),to.getMonth(),to.getDate());
@@ -981,6 +1008,69 @@ function renderHeader(){
 
 function renderAll(){ renderHeader(); renderLog(); renderBoard(); renderMe(); renderShelf(); }
 
+
+/* ============================================================
+   THE PAYOFF
+   Everything is logged at the end of the flow, in one go, so the points
+   land as a single visible event. Scoring the call the instant the button
+   is tapped meant the number moved before the questions even started, and
+   people read that as nothing having happened.
+   ============================================================ */
+let ANIMATING = false;
+
+function celebrate(earned, pending){
+  const el = $("myRank");
+  const from = parseInt(el.textContent, 10) || 0;
+  const to   = from + earned;
+
+  if(navigator.vibrate) navigator.vibrate([12, 40, 18]);
+  document.querySelector(".hdr").classList.remove("pulse");
+  void document.querySelector(".hdr").offsetWidth;
+  document.querySelector(".hdr").classList.add("pulse");
+
+  // the floating +N
+  const b = $("burst");
+  b.className = "burst";
+  b.textContent = "+" + earned;
+  void b.offsetWidth;
+  b.classList.add("go");
+
+  // then, if an outcome is waiting on confirmation, a second smaller one
+  if(pending > 0){
+    setTimeout(()=>{
+      const b2 = $("burst");
+      b2.className = "burst pend";
+      b2.textContent = "+" + pending + " pending";
+      void b2.offsetWidth;
+      b2.classList.add("go");
+    }, 900);
+  }
+
+  // count the total up
+  ANIMATING = true;
+  el.classList.add("rising");
+  const start = performance.now(), dur = 1000;
+  (function step(now){
+    const t = Math.min(1, (now - start) / dur);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(from + (to - from) * eased);
+    if(t < 1) requestAnimationFrame(step);
+    else {
+      el.classList.remove("rising");
+      // hold briefly so a slow server refresh can't snap the number back
+      setTimeout(()=>{ ANIMATING = false; }, 400);
+    }
+  })(start);
+}
+
+/* What this log is worth, computed the same way the database does it, so
+   the number that flies up matches the number that lands. */
+function valueOf(calls, convos, segment, outcome){
+  const earned = calls * (ptsFor("Call attempt") || 0)
+    + convos * Math.round((ptsFor("Conversation") || 0) * (multFor(segment) || 1));
+  const pending = outcome ? (ptsFor(outcome) || 0) : 0;
+  return { earned, pending };
+}
 
 /* ============================================================
    THE CALL FLOW
@@ -1013,7 +1103,7 @@ function showStep(id){
 }
 
 function askSpoke(callQty, inbound){
-  FLOW = { calls: Math.max(1, callQty||1), spoke: 0, inbound: !!inbound, outcome: null };
+  FLOW = { calls: Math.max(1, callQty||1), spoke: 0, inbound: !!inbound, outcome: null, committed: false };
   $("chainAcct").value = "";
   $("chainNote").value = "";
   $("chainErr").textContent = "";
@@ -1086,17 +1176,28 @@ function prepOutcome(){
 }
 
 /* --- endings --- */
-async function finishVoicemail(){
+/* One place where a completed flow gets written and shown. */
+async function commitFlow(convos, outcome, who, note){
+  if(FLOW.done) return;
+  FLOW.done = true;
+  const calls = FLOW.inbound ? 0 : FLOW.calls;
+  const { earned, pending } = valueOf(calls, convos, SEGMENT, outcome);
+
   closeSpoke();
-  toast(FLOW.calls > 1 ? "Voicemails logged" : "Voicemail logged");
+  celebrate(earned, pending);
+
+  if(calls > 0)  await log("Call attempt", calls);
+  if(convos > 0) await log("Conversation", convos, { list_segment: SEGMENT });
+  if(outcome)    await log(outcome, 1, note ? { account_name: who, note }
+                                            : { account_name: who });
+}
+
+async function finishVoicemail(){
+  await commitFlow(0, null);
 }
 
 async function finishConversation(){
-  const n = Math.max(1, FLOW.spoke || 1);
-  closeSpoke();
-  if(navigator.vibrate) navigator.vibrate([10,30,10]);
-  toast(n === 1 ? "Conversation logged" : `${n} conversations logged`);
-  await log("Conversation", n, { list_segment: SEGMENT });
+  await commitFlow(Math.max(1, FLOW.spoke || 1), null);
 }
 
 async function finishWithOutcome(){
@@ -1112,13 +1213,13 @@ async function finishWithOutcome(){
     $("chainNote").focus();
     return;
   }
-  const n = Math.max(1, FLOW.spoke || 1);
-  const outcome = FLOW.outcome;
-  closeSpoke();
-  if(navigator.vibrate) navigator.vibrate([12,40,12]);
-  toast(`${outcome} logged, pending`, true);
-  await log("Conversation", n, { list_segment: SEGMENT });
-  await log(outcome, 1, note ? { account_name: who, note } : { account_name: who });
+  await commitFlow(Math.max(1, FLOW.spoke || 1), FLOW.outcome, who, note);
+}
+
+/* Backing out part-way still counts the dials. They were made either way. */
+async function abandonFlow(){
+  if(FLOW.inbound || FLOW.done){ closeSpoke(); return; }
+  await commitFlow(0, null);
 }
 
 function closeSpoke(){ $("spoke").classList.remove("on"); }
@@ -1387,7 +1488,7 @@ $("justChat").onclick=finishConversation;
 $("chainSave").onclick=finishWithOutcome;
 document.querySelectorAll("[data-back]").forEach(b=>b.onclick=()=>showStep(b.dataset.back));
 $("chainAcct").onkeydown=e=>{ if(e.key==="Enter") finishWithOutcome(); };
-$("spoke").onclick=e=>{ if(e.target===$("spoke")) closeSpoke(); };
+$("spoke").onclick=e=>{ if(e.target===$("spoke")) abandonFlow(); };
 $("notme").onclick=()=>{ store.del("me"); ME=null; ADMIN_PIN=null; location.reload(); };
 $("pinBack").onclick=showNameStep;
 $("pinInput").oninput=e=>{
