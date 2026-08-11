@@ -328,7 +328,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v13</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v14</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -366,6 +366,10 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
   <div class="sheet">
     <h3 id="spokeTitle">Did you speak with them?</h3>
     <p class="spokesub">Only count the ones who actually picked up and talked.</p>
+    <div id="spokeWho" style="display:none">
+      <label class="fl" for="spokeAcct">Who called you back?</label>
+      <input type="text" id="spokeAcct" autocomplete="off" placeholder="Name or account">
+    </div>
     <div class="counts" id="spokeCounts"></div>
     <label class="fl">Who were they?</label>
     <div class="seg" id="spokeSeg"></div>
@@ -607,6 +611,7 @@ async function writeEntry(row){
 function me(){ return STATE.people.find(p=>p.id===ME?.id) || null; }
 
 async function log(action, qty, extra={}){
+  if(!ME){ return; }   // nothing should reach here before sign-in, but don't throw if it does
   const row = { participant_id:ME.id, action, qty, ...extra };
   bump(action, qty);                          // optimistic
   try{
@@ -675,7 +680,7 @@ function renderLog(){
         ${a.action==="Conversation" ? `
           <div class="convonote">Logged for you when you record a call.<br>
             A conversation can never outnumber your dials.</div>
-          <button class="inbound" id="inboundBtn">They called me instead</button>
+          <button class="inbound" id="inboundBtn">They returned my voicemail</button>
         ` : `
         <div class="adders">
           <button class="add" data-act="${a.action}" data-n="1">+1</button>
@@ -894,12 +899,17 @@ function askSpoke(callQty, inbound){
   SPOKE_N = 0;
 
   $("spokeTitle").textContent = inbound
-    ? "They called you"
+    ? "They called you back"
     : (callQty === 1 ? "Did you speak with them?" : `How many of those ${callQty} did you speak with?`);
   document.querySelector("#spoke .spokesub").textContent = inbound
-    ? "Logging a conversation without a dial."
+    ? "For when someone returns a voicemail you already logged. The dial was counted days ago, so this records the conversation on its own."
     : "Only count the ones who picked up and actually talked.";
   $("spokeSkip").style.display = inbound ? "none" : "";
+
+  // The returned-call route is the one way round the call-first rule, so it
+  // carries a name. Not to police anyone, just so it leaves a trace.
+  $("spokeWho").style.display = inbound ? "" : "none";
+  $("spokeAcct").value = "";
 
   // count buttons
   const opts = inbound ? [1] : Array.from({length: SPOKE_MAX}, (_, i) => i + 1);
@@ -919,10 +929,18 @@ function askSpoke(callQty, inbound){
 
   $("spokeCounts").querySelectorAll(".cbtn").forEach(b => b.onclick = async () => {
     const n = +b.dataset.n;
+    const who = $("spokeAcct").value.trim();
+    if(SPOKE_INBOUND && !who){
+      $("spokeAcct").focus();
+      $("spokeAcct").placeholder = "Needed \u2014 who called you back?";
+      return;
+    }
     closeSpoke();
     if(navigator.vibrate) navigator.vibrate([10,30,10]);
     toast(n === 1 ? "Conversation logged" : `${n} conversations logged`);
-    await log("Conversation", n, { list_segment: SEGMENT });
+    await log("Conversation", n,
+      SPOKE_INBOUND ? { list_segment: SEGMENT, account_name: who }
+                    : { list_segment: SEGMENT });
   });
 
   $("spoke").classList.add("on");
