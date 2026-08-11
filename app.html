@@ -392,7 +392,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v21</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v22</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -1282,19 +1282,21 @@ function renderAdminLock(msg){
   $("vAdmin").innerHTML = `
     <div class="acard">
       <h4>Admin</h4>
-      <div class="hint">Enter your 6-digit admin PIN</div>
-      <input type="tel" id="apinInput" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••••">
+      <div class="hint">Enter your admin PIN</div>
+      <input type="tel" id="apinInput" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••">
       <button class="go" id="apinGo" style="width:100%;margin-top:12px;padding:14px;background:var(--manila);color:var(--ink);font-family:var(--display);font-weight:700;letter-spacing:.06em;text-transform:uppercase">Unlock</button>
       <div class="pinerr">${msg||""}</div>
     </div>`;
-  $("apinInput").oninput=e=>{ e.target.value=e.target.value.replace(/\D/g,"").slice(0,6); };
+  $("apinInput").oninput=e=>{ e.target.value=e.target.value.replace(/\D/g,"").slice(0,8); };
   $("apinInput").onkeydown=e=>{ if(e.key==="Enter") adminUnlock(); };
   $("apinGo").onclick=adminUnlock;
 }
 
 async function adminUnlock(){
   const v = $("apinInput").value.trim();
-  if(v.length!==6){ renderAdminLock("Six digits."); return; }
+  // Length isn't fixed: the PIN is whatever is set in the database, and the
+  // database is the only thing that decides whether it's right.
+  if(v.length < 4){ renderAdminLock("At least four digits."); return; }
   ADMIN_PIN = v;
   try{
     await adminLoad();
