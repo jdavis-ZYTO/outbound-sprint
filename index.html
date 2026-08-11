@@ -90,6 +90,50 @@ body{
 
 /* ---------- stage ---------- */
 .stage{flex:1 1 auto;position:relative;overflow:hidden}
+/* Slides down over the board when an outcome lands. Loud enough to look up
+   for, short enough that it never blocks the standings for long. */
+.shout{position:absolute;left:0;right:0;top:0;z-index:22;pointer-events:none;
+  display:flex;justify-content:center;padding:calc(var(--pad)*.6)}
+.shout[hidden]{display:none}
+.shoutInner{background:var(--postal);color:#fff;border-radius:4px;
+  padding:calc(var(--pad)*.7) calc(var(--pad)*1.4);text-align:center;
+  box-shadow:0 10px 40px rgba(224,35,24,.35)}
+.shoutWho{font-family:var(--display);font-weight:700;text-transform:uppercase;
+  letter-spacing:.03em;font-size:clamp(26px,3.4vw,72px);line-height:1}
+.shoutWhat{font-family:var(--body);font-size:clamp(12px,1.15vw,26px);opacity:.92;
+  margin-top:.25em}
+@keyframes shoutIn{
+  0%  {opacity:0;transform:translateY(-120%) scale(.95)}
+  12% {opacity:1;transform:translateY(0) scale(1.03)}
+  20% {transform:translateY(0) scale(1)}
+  88% {opacity:1;transform:translateY(0)}
+  100%{opacity:0;transform:translateY(-120%)}
+}
+.shout:not([hidden]) .shoutInner{animation:shoutIn 7s cubic-bezier(.2,.9,.3,1) both}
+
+.soundbtn{background:var(--postal);color:#fff;border:none;border-radius:99px;
+  padding:.5em 1.1em;font-family:var(--data);font-size:clamp(9px,.62vw,14px);
+  letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+
+.takeover{position:absolute;inset:0;z-index:20;background:var(--ink);
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.takeover[hidden]{display:none}
+#confetti{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.tk{position:relative;z-index:2;text-align:center;padding:var(--pad)}
+.tkeyebrow{font-family:var(--data);font-size:clamp(10px,.8vw,18px);letter-spacing:.3em;
+  color:var(--dial);text-transform:uppercase;margin-bottom:.6em}
+.tklabel{font-family:var(--display);font-weight:500;text-transform:uppercase;
+  letter-spacing:.22em;font-size:clamp(14px,1.5vw,32px);color:var(--dim)}
+.tkname{font-family:var(--display);font-weight:700;text-transform:uppercase;
+  letter-spacing:.02em;font-size:clamp(44px,8vw,170px);line-height:1;color:var(--manila);
+  margin:.06em 0}
+.tkpts{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,110px);
+  line-height:1;color:var(--postal)}
+.tksub{font-family:var(--body);font-size:clamp(13px,1.2vw,28px);color:var(--dim);
+  margin-top:.7em}
+@keyframes tkIn{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:none}}
+.takeover:not([hidden]) .tk{animation:tkIn .5s cubic-bezier(.2,.9,.3,1) both}
+
 .bigmsg{position:absolute;inset:0;z-index:10;background:var(--ink);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   text-align:center;padding:var(--pad);gap:.6em}
@@ -447,6 +491,24 @@ body{
 
   <main class="stage">
 
+    <div class="shout" id="shout" hidden>
+      <div class="shoutInner">
+        <div class="shoutWho" id="shoutWho"></div>
+        <div class="shoutWhat" id="shoutWhat"></div>
+      </div>
+    </div>
+
+    <div class="takeover" id="takeover" hidden>
+      <canvas id="confetti"></canvas>
+      <div class="tk">
+        <div class="tkeyebrow" id="tkHour">Top of the hour</div>
+        <div class="tklabel">Biggest mover</div>
+        <div class="tkname" id="tkName"></div>
+        <div class="tkpts" id="tkPts"></div>
+        <div class="tksub" id="tkSub"></div>
+      </div>
+    </div>
+
     <div class="bigmsg" id="bigmsg" hidden>
       <div class="bm1" id="bmTitle"></div>
       <div class="bm2" id="bmBody"></div>
@@ -488,6 +550,7 @@ body{
   </main>
 
   <footer class="footer">
+    <button class="soundbtn" id="soundBtn" hidden>Tap anywhere to turn sound on</button>
     <div class="status" id="status">Loading</div>
     <div class="dots" id="dots"></div>
   </footer>
@@ -518,6 +581,11 @@ const CONFIG = {
 
   // Days the office actually works. 0=Sun, 1=Mon ... 6=Sat.
   workingDays: [1,2,3,4],
+
+  // Top-of-the-hour takeover
+  takeoverSeconds: 14,   // how long it holds the screen
+  hourlyFrom: 8,         // don't fire before this hour
+  hourlyTo: 17,          // or after it
 
   refreshSeconds: 60,
   rotateSeconds: 20,
@@ -586,7 +654,7 @@ let rows = [];
 let lastRank = {};
 
 // Every source normalizes into this shape before anything renders.
-let MODEL = { people:[], feed:[], shelf:[], daily:[], winners:[] };
+let MODEL = { people:[], feed:[], shelf:[], daily:[], winners:[], hourly:[] };
 
 function shelfFromConfig(){
   return CONFIG.shelf.map(i=>({ name:i.name, cost:i.cost, sold:!!i.sold }));
@@ -1027,6 +1095,217 @@ function draw(){
   renderShelf(people, MODEL.shelf);
   runCounters($("boardRows"));
   people.forEach(p=>lastRank[p.name]=p.rank);
+  checkOutcomes(MODEL.feedAll || MODEL.feed);
+  checkHourly();
+}
+
+
+
+/* ============================================================
+   OUTCOME ANNOUNCEMENTS
+   When somebody logs a referral, a renewal, a review or a sale, the
+   board chimes, says their name out loud and puts a banner over the
+   top of the screen.
+
+   Two realities to work around:
+     - browsers refuse to play audio until someone has tapped the page,
+       so there's a one-time prompt and everything still works silently
+       if nobody ever taps it
+     - the board polls, so it announces whatever appeared since the
+       last poll rather than reacting live
+   ============================================================ */
+let SEEN_OUTCOMES = null;      // null until the first poll establishes a baseline
+let AUDIO_OK = false;
+let AUDIO_CTX = null;
+const SHOUT_QUEUE = [];
+let SHOUTING = false;
+
+function unlockAudio(){
+  if(AUDIO_OK) return;
+  try{
+    AUDIO_CTX = new (window.AudioContext || window.webkitAudioContext)();
+    if(AUDIO_CTX.state === "suspended") AUDIO_CTX.resume();
+    // a silent blip is what actually satisfies the autoplay gate
+    const o = AUDIO_CTX.createOscillator(), g = AUDIO_CTX.createGain();
+    g.gain.value = 0; o.connect(g); g.connect(AUDIO_CTX.destination);
+    o.start(); o.stop(AUDIO_CTX.currentTime + 0.01);
+    if(window.speechSynthesis){
+      const u = new SpeechSynthesisUtterance(" ");
+      u.volume = 0; window.speechSynthesis.speak(u);
+    }
+    AUDIO_OK = true;
+    $("soundBtn").hidden = true;
+  }catch(e){ /* no audio available; the banner still works */ }
+}
+
+/* A short rising two-note chime, generated rather than loaded, so there's
+   no file to host and nothing to fail on a cold start. */
+function chime(){
+  if(!AUDIO_OK || !AUDIO_CTX) return;
+  const t0 = AUDIO_CTX.currentTime;
+  [[880, 0], [1318.5, 0.13]].forEach(([hz, at])=>{
+    const o = AUDIO_CTX.createOscillator(), g = AUDIO_CTX.createGain();
+    o.type = "triangle";
+    o.frequency.value = hz;
+    g.gain.setValueAtTime(0.0001, t0 + at);
+    g.gain.exponentialRampToValueAtTime(0.22, t0 + at + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + 0.42);
+    o.connect(g); g.connect(AUDIO_CTX.destination);
+    o.start(t0 + at); o.stop(t0 + at + 0.45);
+  });
+}
+
+function say(text){
+  if(!AUDIO_OK || !window.speechSynthesis) return;
+  try{
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.98; u.pitch = 1.0; u.volume = 1;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+function queueShout(name, action, qty){
+  SHOUT_QUEUE.push({ name, action, qty });
+  if(!SHOUTING) nextShout();
+}
+
+function nextShout(){
+  if(!SHOUT_QUEUE.length){ SHOUTING = false; return; }
+  SHOUTING = true;
+  const { name, action } = SHOUT_QUEUE.shift();
+
+  $("shoutWho").textContent  = name;
+  $("shoutWhat").textContent = action.toUpperCase() + " · pending confirmation";
+  $("shout").hidden = false;
+
+  chime();
+  setTimeout(()=>say(`${name} just logged a ${action}`), 700);
+
+  setTimeout(()=>{
+    $("shout").hidden = true;
+    setTimeout(nextShout, 400);
+  }, 7000);
+}
+
+/* Compare the newest feed against what we've already announced. */
+function checkOutcomes(feed){
+  const wins = (feed||[]).filter(f => f.isWin);
+  const keyOf = f => f.ts.getTime() + "|" + f.name + "|" + f.action;
+
+  // First poll only establishes a baseline. Otherwise restarting the board
+  // would replay every outcome of the day at once.
+  if(SEEN_OUTCOMES === null){
+    SEEN_OUTCOMES = new Set(wins.map(keyOf));
+    return;
+  }
+
+  wins
+    .filter(f => !SEEN_OUTCOMES.has(keyOf(f)))
+    .sort((a,b) => a.ts - b.ts)
+    .forEach(f => {
+      SEEN_OUTCOMES.add(keyOf(f));
+      queueShout(f.name, f.action, f.count);
+    });
+
+  // keep the set from growing without bound over a long run
+  if(SEEN_OUTCOMES.size > 400){
+    SEEN_OUTCOMES = new Set(wins.map(keyOf));
+  }
+}
+
+/* ============================================================
+   TOP OF THE HOUR
+   At the turn of each hour the board takes over the screen, throws
+   confetti and names whoever earned the most in the hour that just
+   ended. It runs unattended for days, so it has to be self-limiting:
+   once per hour, only when somebody actually scored, never on load.
+   ============================================================ */
+let LAST_HOUR_SHOWN = null;
+
+function hourKey(d){ return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate()+"-"+d.getHours(); }
+
+/* A plain canvas snow of paper. No library, nothing to load, and it
+   stops itself so an unattended screen isn't animating all day. */
+function throwConfetti(ms){
+  const cv = $("confetti");
+  const ctx = cv.getContext("2d");
+  const W = cv.width  = cv.offsetWidth;
+  const H = cv.height = cv.offsetHeight;
+  const colors = ["#B8690A","#E02318","#00937C","#5B45E0","#0D1F33"];
+  const bits = Array.from({length:170}, ()=>({
+    x: Math.random()*W,
+    y: -20 - Math.random()*H,
+    w: 6 + Math.random()*8,
+    h: 9 + Math.random()*14,
+    vy: 1.6 + Math.random()*3.4,
+    vx: -1.2 + Math.random()*2.4,
+    rot: Math.random()*Math.PI,
+    vr: -0.12 + Math.random()*0.24,
+    c: colors[Math.floor(Math.random()*colors.length)]
+  }));
+
+  const started = performance.now();
+  (function frame(now){
+    const elapsed = now - started;
+    ctx.clearRect(0,0,W,H);
+    bits.forEach(b=>{
+      b.x += b.vx; b.y += b.vy; b.rot += b.vr;
+      if(b.y > H + 30){ b.y = -20; b.x = Math.random()*W; }
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(b.rot);
+      ctx.fillStyle = b.c;
+      ctx.globalAlpha = elapsed > ms - 900 ? Math.max(0,(ms-elapsed)/900) : 1;
+      ctx.fillRect(-b.w/2, -b.h/2, b.w, b.h);
+      ctx.restore();
+    });
+    if(elapsed < ms) requestAnimationFrame(frame);
+    else ctx.clearRect(0,0,W,H);
+  })(started);
+}
+
+function showHourly(mover){
+  const when = new Date(mover.hour);
+  const to   = new Date(when.getTime() + 36e5);
+  const fmt  = d => d.toLocaleTimeString([], {hour:"numeric"}).replace(" ","").toLowerCase();
+
+  $("tkHour").textContent = `${fmt(when)} to ${fmt(to)}`;
+  $("tkName").textContent = mover.display_name;
+  $("tkPts").textContent  = "+" + mover.points;
+
+  const bits = [];
+  if(mover.convos)  bits.push(`${mover.convos} conversation${mover.convos===1?"":"s"}`);
+  if(mover.letters) bits.push(`${mover.letters} letter${mover.letters===1?"":"s"}`);
+  if(mover.calls)   bits.push(`${mover.calls} call${mover.calls===1?"":"s"}`);
+  $("tkSub").textContent = bits.join(" · ");
+
+  $("takeover").hidden = false;
+  // canvas needs a laid-out parent before it can size itself
+  setTimeout(()=>throwConfetti(CONFIG.takeoverSeconds*1000 - 600), 30);
+  setTimeout(()=>{ $("takeover").hidden = true; }, CONFIG.takeoverSeconds*1000);
+}
+
+function checkHourly(){
+  const now = new Date();
+  const key = hourKey(now);
+
+  // On the very first pass just remember where we are, so restarting the
+  // board mid-afternoon doesn't immediately replay an old hour.
+  if(LAST_HOUR_SHOWN === null){ LAST_HOUR_SHOWN = key; return; }
+  if(LAST_HOUR_SHOWN === key) return;
+  LAST_HOUR_SHOWN = key;
+
+  // only inside working hours, and only if somebody actually scored
+  const h = now.getHours();
+  if(h < CONFIG.hourlyFrom || h > CONFIG.hourlyTo) return;
+
+  const prev = new Date(now.getTime() - 36e5);
+  const mover = (MODEL.hourly||[]).find(m=>{
+    const mh = new Date(m.hour);
+    return mh.getHours() === prev.getHours() && mh.getDate() === prev.getDate();
+  });
+  if(mover && mover.points > 0) showHourly(mover);
 }
 
 /* ============================================================
@@ -1049,11 +1328,16 @@ document.addEventListener("keydown",e=>{
   if(e.key==="ArrowLeft"){ pi=(pi-1+PANELS.length)%PANELS.length; show(pi); }
 });
 document.querySelector(".stage").addEventListener("click", rotate);
+["click","touchstart","keydown"].forEach(ev=>
+  document.addEventListener(ev, unlockAudio, { once:false, passive:true }));
+// Show the prompt only if audio is still locked a moment after load.
+setTimeout(()=>{ if(!AUDIO_OK) $("soundBtn").hidden = false; }, 2500);
+$("soundBtn").addEventListener("click", unlockAudio);
 
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v16";
+const BUILD = "v17";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
@@ -1112,12 +1396,13 @@ async function loadSupabase(){
   // Fetched independently: if the prize list or the activity feed fails, the
   // standings should still render. Bundling them meant one bad query blanked
   // the whole screen.
-  const [sRes, fRes, pRes, dRes, wRes] = await Promise.allSettled([
+  const [sRes, fRes, pRes, dRes, wRes, hRes] = await Promise.allSettled([
     sbGet("standings?select=*"),
-    sbGet("activity_feed?select=*&limit=9"),
+    sbGet("activity_feed?select=*&limit=30"),
     sbGet("prizes?select=*&order=token_cost.desc,sort_order.asc"),
     sbGet("daily_scores?select=*"),
-    sbGet("daily_winners?select=*&limit=8")
+    sbGet("daily_winners?select=*&limit=8"),
+    sbGet("hourly_movers?select=*&limit=12")
   ]);
 
   if(sRes.status === "rejected"){
@@ -1129,6 +1414,7 @@ async function loadSupabase(){
   const prizes    = pRes.status === "fulfilled" ? (pRes.value || []) : [];
   const daily     = dRes.status === "fulfilled" ? (dRes.value || []) : [];
   const winners   = wRes.status === "fulfilled" ? (wRes.value || []) : [];
+  const hourly    = hRes.status === "fulfilled" ? (hRes.value || []) : [];
 
   // Sorted here rather than server-side: ordering by rank was rejected with a
   // 400, and fourteen rows cost nothing to sort in the browser. Nulls (the
@@ -1157,15 +1443,20 @@ async function loadSupabase(){
 
   MODEL = {
     people,
-    feed: feed.map(f=>({
+    // the ticker shows a handful; the announcer needs the full window
+    feed: feed.slice(0,9).map(f=>({
+      ts:new Date(f.created_at), name:f.display_name, action:f.action,
+      count:f.qty, verified:f.verified, isWin:f.track==="wins"
+    })),
+    feedAll: feed.map(f=>({
       ts:new Date(f.created_at), name:f.display_name, action:f.action,
       count:f.qty, verified:f.verified, isWin:f.track==="wins"
     })),
     shelf: prizes.map(p=>({ name:p.name, cost:p.token_cost, sold:!!p.claimed_by })),
-    daily, winners
+    daily, winners, hourly
   };
 
-  const partial = [fRes,pRes,dRes,wRes].some(r=>r.status==="rejected") ? " · some panels unavailable" : "";
+  const partial = [fRes,pRes,dRes,wRes,hRes].some(r=>r.status==="rejected") ? " · some panels unavailable" : "";
   setStatus(`Live · <b>${people.length}</b> players · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}${partial} · ${BUILD}`, !!partial);
   draw();
 }
@@ -1174,7 +1465,7 @@ async function loadSheet(){
   const res = await fetch(CONFIG.csvUrl + (CONFIG.csvUrl.includes("?")?"&":"?") + "cb=" + Date.now());
   if(!res.ok) throw new Error("HTTP "+res.status);
   rows = normalize(parseCSV(await res.text()));
-  MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig(), daily: [], winners: [] };
+  MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig(), daily: [], winners: [], hourly: [] };
   setStatus(`Live · <b>${rows.length}</b> entries · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}`);
   draw();
 }
@@ -1184,7 +1475,7 @@ async function load(){
     if(CONFIG.source==="supabase" && CONFIG.supabase.url){ await loadSupabase(); LAST_ERROR=null; return; }
     if(CONFIG.source==="sheet" && CONFIG.csvUrl){ await loadSheet(); return; }
     if(!rows.length) rows = demoRows();
-    MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig(), daily: [], winners: [] };
+    MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig(), daily: [], winners: [], hourly: [] };
     setStatus('<b>Demo data</b> — set source and credentials in CONFIG to go live', true);
     draw();
   }catch(err){
