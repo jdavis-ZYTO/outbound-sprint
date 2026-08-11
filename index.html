@@ -461,12 +461,18 @@ body{
     </section>
 
     <section class="panel" id="pToday">
-      <div class="panelhead"><h2>Today</h2><span class="sub">Movers since midnight · live log</span></div>
+      <div class="panelhead"><h2>Today</h2><span class="sub">Everyone's day so far · resets at midnight</span></div>
       <div class="todaygrid">
         <div class="moverlist" id="moverList"></div>
-        <div class="tickerwrap">
-          <div class="cap">Last logged</div>
-          <div class="tick" id="tickList"></div>
+        <div class="sidecol">
+          <div class="tickerwrap winners">
+            <div class="cap">Who took each day</div>
+            <div class="tick" id="winnerList"></div>
+          </div>
+          <div class="tickerwrap">
+            <div class="cap">Last logged</div>
+            <div class="tick" id="tickList"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -577,7 +583,7 @@ let rows = [];
 let lastRank = {};
 
 // Every source normalizes into this shape before anything renders.
-let MODEL = { people:[], feed:[], shelf:[] };
+let MODEL = { people:[], feed:[], shelf:[], daily:[], winners:[] };
 
 function shelfFromConfig(){
   return CONFIG.shelf.map(i=>({ name:i.name, cost:i.cost, sold:!!i.sold }));
@@ -807,12 +813,43 @@ function renderTracks(people){
 }
 
 function renderToday(people, feed){
-  const movers=[...people].sort((a,b)=>b.today-a.today).slice(0,6);
-  $("moverList").innerHTML = movers.map(p=>`
-    <div class="mover">
-      <span class="mn">${p.name}</span>
-      <span class="mp">${p.today>0?"+"+p.today:"—"}</span>
+  // A ranked board for today alone, so a good day shows up even when the
+  // overall standings barely move.
+  const today = new Date().toISOString().slice(0,10);
+  const byName = {};
+  (MODEL.daily||[]).filter(d=>d.day===today).forEach(d=>byName[d.display_name]=d);
+
+  const rows = people
+    .filter(p=>p.competing!==false)
+    .map(p=>{
+      const d = byName[p.name];
+      return { name:p.name, pts: d ? d.points : (p.today||0),
+               calls: d?d.calls:0, letters: d?d.letters:0, convos: d?d.convos:0 };
+    })
+    .sort((a,b)=> b.pts-a.pts || a.name.localeCompare(b.name))
+    .slice(0,8);
+
+  const top = rows.length ? rows[0].pts : 0;
+  $("moverList").innerHTML = rows.map((r,i)=>`
+    <div class="mover ${r.pts>0 && r.pts===top ? "lead" : ""} ${r.pts===0?"zero":""}">
+      <span class="mrk">${r.pts>0 ? (i+1) : "·"}</span>
+      <span>
+        <span class="mn">${r.name}</span>
+        <span class="msub">${r.convos} convo${r.convos===1?"":"s"} · ${r.letters} letter${r.letters===1?"":"s"} · ${r.calls} call${r.calls===1?"":"s"}</span>
+      </span>
+      <span class="mp">${r.pts>0?r.pts:"—"}</span>
     </div>`).join("") || `<div class="mover"><span class="mn">Nothing logged yet today</span></div>`;
+
+  // who took each previous day
+  const wl = (MODEL.winners||[]).filter(w=>w.day!==today).slice(0,6);
+  $("winnerList").innerHTML = wl.length ? wl.map(w=>{
+    const d = new Date(w.day+"T12:00:00");
+    return `<div class="wrow">
+      <span class="wd">${d.toLocaleDateString([], {weekday:"short", day:"numeric"})}</span>
+      <span class="wn">${w.display_name}</span>
+      <span class="wp">${w.points}</span>
+    </div>`;
+  }).join("") : `<div class="wrow"><span class="wd">First day</span></div>`;
 
   $("tickList").innerHTML = feed.map(r=>{
     const t = r.ts.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
@@ -1012,7 +1049,7 @@ document.querySelector(".stage").addEventListener("click", rotate);
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v12";
+const BUILD = "v15";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
@@ -1071,10 +1108,12 @@ async function loadSupabase(){
   // Fetched independently: if the prize list or the activity feed fails, the
   // standings should still render. Bundling them meant one bad query blanked
   // the whole screen.
-  const [sRes, fRes, pRes] = await Promise.allSettled([
+  const [sRes, fRes, pRes, dRes, wRes] = await Promise.allSettled([
     sbGet("standings?select=*"),
     sbGet("activity_feed?select=*&limit=9"),
-    sbGet("prizes?select=*&order=token_cost.desc,sort_order.asc")
+    sbGet("prizes?select=*&order=token_cost.desc,sort_order.asc"),
+    sbGet("daily_scores?select=*"),
+    sbGet("daily_winners?select=*&limit=8")
   ]);
 
   if(sRes.status === "rejected"){
@@ -1084,6 +1123,8 @@ async function loadSupabase(){
   const standings = sRes.value || [];
   const feed      = fRes.status === "fulfilled" ? (fRes.value || []) : [];
   const prizes    = pRes.status === "fulfilled" ? (pRes.value || []) : [];
+  const daily     = dRes.status === "fulfilled" ? (dRes.value || []) : [];
+  const winners   = wRes.status === "fulfilled" ? (wRes.value || []) : [];
 
   // Sorted here rather than server-side: ordering by rank was rejected with a
   // 400, and fourteen rows cost nothing to sort in the browser. Nulls (the
@@ -1115,10 +1156,11 @@ async function loadSupabase(){
       ts:new Date(f.created_at), name:f.display_name, action:f.action,
       count:f.qty, verified:f.verified, isWin:f.track==="wins"
     })),
-    shelf: prizes.map(p=>({ name:p.name, cost:p.token_cost, sold:!!p.claimed_by }))
+    shelf: prizes.map(p=>({ name:p.name, cost:p.token_cost, sold:!!p.claimed_by })),
+    daily, winners
   };
 
-  const partial = (fRes.status==="rejected" || pRes.status==="rejected") ? " · some panels unavailable" : "";
+  const partial = [fRes,pRes,dRes,wRes].some(r=>r.status==="rejected") ? " · some panels unavailable" : "";
   setStatus(`Live · <b>${people.length}</b> players · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}${partial} · ${BUILD}`, !!partial);
   draw();
 }
@@ -1127,7 +1169,7 @@ async function loadSheet(){
   const res = await fetch(CONFIG.csvUrl + (CONFIG.csvUrl.includes("?")?"&":"?") + "cb=" + Date.now());
   if(!res.ok) throw new Error("HTTP "+res.status);
   rows = normalize(parseCSV(await res.text()));
-  MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig() };
+  MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig(), daily: [], winners: [] };
   setStatus(`Live · <b>${rows.length}</b> entries · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}`);
   draw();
 }
@@ -1137,7 +1179,7 @@ async function load(){
     if(CONFIG.source==="supabase" && CONFIG.supabase.url){ await loadSupabase(); LAST_ERROR=null; return; }
     if(CONFIG.source==="sheet" && CONFIG.csvUrl){ await loadSheet(); return; }
     if(!rows.length) rows = demoRows();
-    MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig() };
+    MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig(), daily: [], winners: [] };
     setStatus('<b>Demo data</b> — set source and credentials in CONFIG to go live', true);
     draw();
   }catch(err){
