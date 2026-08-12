@@ -291,10 +291,9 @@ body{
 .board.dense{gap:.35vh}
 .board.dense .row{padding:0 calc(var(--pad)*.5)}
 .board.dense .rank{font-size:clamp(16px,1.9vw,38px)}
-.board.dense .who{display:flex;flex-direction:column;justify-content:center}
+.board.dense .who{display:flex;align-items:center;min-width:0;overflow:hidden}
 .who .nm{font-size:clamp(13px,1.35vw,28px)}
-.board.dense .who .tok{font-size:clamp(8px,.55vw,12px)}
-.board.dense .pts{font-size:clamp(19px,2.2vw,46px)}
+.board.dense .board.dense .pts{font-size:clamp(19px,2.2vw,46px)}
 .board.dense .track .rail{height:clamp(4px,.45vh,8px)}
 .board.dense .tracks{gap:.2vh}
 .board.dense .track .lbl{font-size:clamp(6px,.44vw,10px)}
@@ -307,7 +306,7 @@ body{
 .board.denser .tracks{display:none}
 .board.denser .row{grid-template-columns:4.2vw minmax(0,1fr) 6.6vw 6.6vw 5vw}
 .board.denser .rank{font-size:clamp(14px,1.6vw,32px)}
-.board.denser .who{display:flex;flex-direction:column;justify-content:center}
+.board.denser .who{display:flex;align-items:center;min-width:0;overflow:hidden}
 .who .nm{font-size:clamp(12px,1.2vw,25px)}
 .board.denser .pts{font-size:clamp(17px,1.9vw,40px)}
 
@@ -325,18 +324,12 @@ body{
 .delta.flat{color:var(--dim);opacity:.5}
 
 .who{min-width:0;overflow:hidden}
-.who{display:flex;flex-direction:column;justify-content:center}
+.who{display:flex;align-items:center;min-width:0;overflow:hidden}
 .who .nm{
   font-family:var(--display);font-weight:500;text-transform:uppercase;
   font-size:clamp(16px,1.75vw,38px);letter-spacing:.035em;line-height:1.06;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.who .tok{
-  font-family:var(--data);font-size:clamp(9px,.66vw,14px);
-  color:var(--manila);letter-spacing:.1em;
-}
-.who .tok .spent{color:var(--dim)}
-.who .tok.held{color:var(--postal)}
 
 /* four independent tracks, each its own rail */
 .tracks{display:flex;flex-direction:column;gap:.32vh;min-width:0}
@@ -1029,14 +1022,10 @@ function renderBoard(people){
     const stamp = p.winsVerified>0
       ? `<div class="stamp"><span class="big">${p.winsVerified}</span><span class="sm">VERIFIED</span></div>`
       : `<div class="stamp empty"><span class="sm">${p.pending?"CLEARING":"NO WINS<br>YET"}</span></div>`;
-    const spent = p.spent ? ` <span class="spent">(${p.spent} spent)</span>` : "";
     return `
     <div class="row ${cls} ${p.delta?"moved":""}">
       <div class="rank">${p.rank}${d}</div>
-      <div class="who">
-        <div class="nm">${p.name}</div>
-${p.spent ? `<div class="tok">${p.spent} spent</div>` : ""}
-      </div>
+      <div class="who"><div class="nm">${p.name}</div></div>
       ${tracks(p)}
       <div class="wallet ${p.unlocked===false?"held":""}"
            title="${p.unlocked===false ? "On hold until today's floor is cleared" : "Ready to spend"}">
@@ -1054,10 +1043,7 @@ ${p.spent ? `<div class="tok">${p.spent} spent</div>` : ""}
   const paceRows = pace.map(p=>`
     <div class="row pace">
       <div class="rank">SETTING<br>THE PACE</div>
-      <div class="who">
-        <div class="nm">${p.name}</div>
-        <div class="tok">Competing, not claiming</div>
-      </div>
+      <div class="who"><div class="nm">${p.name}</div></div>
       ${tracks(p)}
       <div class="wallet"><span class="wnum">—</span></div>
       <div class="score">
@@ -1849,7 +1835,7 @@ setInterval(()=>{
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v28";
+const BUILD = "v29";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
