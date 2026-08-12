@@ -414,7 +414,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v26</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v27</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -1486,14 +1486,31 @@ function renderAdmin(){
     }catch(e){ stopBtn.disabled=false; stopBtn.textContent="Stop it now"; toast("Couldn't stop it"); }
   };
 
+  // Team target or race. The form changes shape between the two: a race
+  // has no number to hit, so the target field disappears.
+  let CH_MODE = "target";
+  $("vAdmin").querySelectorAll("[data-mode]").forEach(b => b.onclick = () => {
+    CH_MODE = b.dataset.mode;
+    $("vAdmin").querySelectorAll("[data-mode]").forEach(x =>
+      x.setAttribute("aria-pressed", String(x === b)));
+    const race = CH_MODE === "race";
+    $("chTarget").style.display = race ? "none" : "";
+    $("lblTarget").textContent  = race ? "Most of these wins" : "Hit this many";
+    $("lblReward").textContent  = race ? "And the winner gets" : "And everyone gets";
+    $("chReward").placeholder   = race ? "Leaves at 3 on Thursday" : "Lunch is on me";
+    $("chErr").textContent = "";
+  });
+
   const startBtn = $("startChallenge");
   if(startBtn) startBtn.onclick = async ()=>{
+    const race   = CH_MODE === "race";
     const target = parseInt($("chTarget").value, 10);
     const mins   = parseInt($("chMins").value, 10);
     const metric = $("chMetric").value;
     const reward = $("chReward").value.trim();
 
-    if(isNaN(target) || target < 1){ $("chErr").textContent = "How many?"; $("chTarget").focus(); return; }
+    if(!race && (isNaN(target) || target < 1)){
+      $("chErr").textContent = "How many?"; $("chTarget").focus(); return; }
     if(isNaN(mins) || mins < 1){ $("chErr").textContent = "How long?"; $("chMins").focus(); return; }
     if(!reward){ $("chErr").textContent = "What do they get?"; $("chReward").focus(); return; }
 
@@ -1503,13 +1520,13 @@ function renderAdmin(){
     try{
       await adminCall("admin_start_challenge", {
         p_admin_pin: ADMIN_PIN,
-        p_kind: "team_target",
+        p_kind: race ? "race" : "team_target",
         p_minutes: mins,
-        p_config: { metric, target, reward },
-        p_title: `${target} ${label}`,
+        p_config: race ? { metric, reward } : { metric, target, reward },
+        p_title: race ? `Most ${label} wins` : `${target} ${label}`,
         p_subtitle: `In the next ${mins} minutes`
       });
-      toast("Challenge is live");
+      toast(race ? "Race is live" : "Challenge is live");
       await adminLoad(); renderAdmin();
     }catch(e){
       startBtn.disabled=false; startBtn.textContent="Start it";
