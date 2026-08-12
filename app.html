@@ -266,6 +266,16 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
   letter-spacing:.12em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
 .arow .abtn:active{background:var(--ink-3);color:var(--paper)}
 .arow .abtn.go{border-color:var(--dial);color:var(--dial)}
+.modes{display:flex;gap:8px;margin:12px 0 4px}
+.modebtn{flex:1;padding:11px 10px;border:1.5px solid var(--ink-3);border-radius:4px;
+  background:#fff;text-align:left}
+.modebtn b{display:block;font-family:var(--display);font-weight:500;text-transform:uppercase;
+  font-size:13px;letter-spacing:.03em;color:var(--dim)}
+.modebtn i{display:block;font-style:normal;font-size:10px;color:var(--ink-3);margin-top:2px;
+  line-height:1.25}
+.modebtn[aria-pressed="true"]{border-color:var(--violet);background:#F6F4FF}
+.modebtn[aria-pressed="true"] b{color:var(--violet)}
+.modebtn[aria-pressed="true"] i{color:var(--dim)}
 .chrow{display:flex;gap:8px}
 .chrow input{flex:0 0 40%}
 .chrow select{flex:1 1 auto;padding:14px;background:#fff;border:1px solid var(--ink-3);
@@ -404,7 +414,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v25</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v26</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -1358,7 +1368,8 @@ function renderAdmin(){
   const challengePanel = live ? `
     <div class="acard" style="border-left-color:var(--violet)">
       <h4>${live.title}</h4>
-      <div class="hint">${live.progress} of ${live.target} ${live.metric}${
+      <div class="hint">${live.target ? live.progress + " of " + live.target
+        : live.progress + " logged"} ${live.metric}${
         live.seconds_left ? " · " + Math.ceil(live.seconds_left/60) + " min left" : ""}</div>
       <div class="reward">${live.reward || ""}</div>
       <button class="abtn stopch" id="stopChallenge">End the challenge</button>
@@ -1368,7 +1379,14 @@ function renderAdmin(){
       <h4>Set a challenge</h4>
       <div class="hint">A side quest. It doesn't change anyone's points or tokens</div>
 
-      <label class="fl">Hit this many</label>
+      <div class="modes">
+        <button class="modebtn" data-mode="target" aria-pressed="true">
+          <b>Team target</b><i>Everyone gets it if we hit the number</i></button>
+        <button class="modebtn" data-mode="race" aria-pressed="false">
+          <b>Race</b><i>Whoever logs the most wins it</i></button>
+      </div>
+
+      <label class="fl" id="lblTarget">Hit this many</label>
       <div class="chrow">
         <input type="tel" id="chTarget" inputmode="numeric" placeholder="300">
         <select id="chMetric">
@@ -1383,7 +1401,7 @@ function renderAdmin(){
       <label class="fl">In this many minutes</label>
       <input type="tel" id="chMins" inputmode="numeric" placeholder="60">
 
-      <label class="fl">And everyone gets</label>
+      <label class="fl" id="lblReward">And everyone gets</label>
       <input type="text" id="chReward" placeholder="Lunch is on me">
 
       <div class="err" id="chErr"></div>

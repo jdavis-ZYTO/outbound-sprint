@@ -126,6 +126,23 @@ body{
   text-transform:uppercase;color:var(--dial)}
 .rewardtxt{font-family:var(--display);font-weight:700;text-transform:uppercase;
   font-size:clamp(20px,2.6vw,58px);line-height:1.05;color:var(--paper)}
+.race{display:flex;flex-direction:column;gap:.45em;max-width:86%;margin:0 auto}
+.rrow{display:grid;grid-template-columns:2.2em 1fr 3fr 3.2em;align-items:center;gap:.7em;
+  background:var(--ink-2);box-shadow:var(--shadow);border-radius:4px;
+  padding:calc(var(--pad)*.32) calc(var(--pad)*.6)}
+.rrow.lead{background:#FFF4F3;border-left:4px solid var(--postal)}
+.rrk{font-family:var(--display);font-weight:700;font-size:clamp(15px,1.7vw,36px);
+  color:var(--dim);text-align:center}
+.rrow.lead .rrk{color:var(--postal)}
+.rnm{font-family:var(--display);font-weight:500;text-transform:uppercase;
+  font-size:clamp(14px,1.6vw,34px);letter-spacing:.02em;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.rbar{height:clamp(8px,1.1vh,18px);background:var(--rail);border-radius:99px;overflow:hidden}
+.rbar b{display:block;height:100%;background:var(--violet);
+  transition:width .8s cubic-bezier(.2,.8,.25,1)}
+.rrow.lead .rbar b{background:var(--postal)}
+.ramt{font-family:var(--display);font-weight:700;font-size:clamp(17px,2vw,44px);
+  text-align:right;font-variant-numeric:tabular-nums}
 .contrib{display:flex;flex-wrap:wrap;gap:.5em;justify-content:center;margin-top:1.1em}
 .cchip{font-family:var(--data);font-size:clamp(10px,.85vw,19px);color:var(--dim);
   background:var(--ink-2);border-radius:99px;padding:.35em .9em}
@@ -1606,36 +1623,62 @@ function checkHourly(){
 let CHAL_ANNOUNCED = null;
 
 function renderChallenge(c){
-  const target = c.target || 1;
-  const done   = c.progress || 0;
-  const pct    = Math.min(100, Math.round(done / target * 100));
-  const hit    = done >= target;
   const label  = { calls:"outbound calls", convos:"conversations", letters:"letters",
                    outcomes:"outcomes", points:"points" }[c.metric] || c.metric;
+  const board  = (MODEL.contributors || []);
+  const isRace = c.kind === "race" || !c.target;
 
-  $("chalEyebrow").textContent = hit ? "Target reached" : "Challenge";
-  $("chalTitle").textContent   = hit ? "We did it" : c.title;
-  $("chalSub").textContent     = hit ? "" : (c.subtitle || "");
+  if(isRace){
+    // A race: the leaderboard is the whole story.
+    const top = board.length ? board[0].amount : 0;
+    $("chalEyebrow").textContent = c.ended ? "Race over" : "Race";
+    $("chalTitle").textContent   = c.ended
+      ? (board.length ? board[0].display_name + " wins" : "Nobody logged one")
+      : c.title;
+    $("chalSub").textContent     = c.ended ? "" : (c.subtitle || "");
 
-  const contributors = (MODEL.contributors || []).slice(0, 6);
+    $("chalBody").innerHTML = `
+      ${board.length ? `<div class="race">${board.slice(0,8).map((x,i)=>`
+        <div class="rrow ${i===0?"lead":""}">
+          <span class="rrk">${i+1}</span>
+          <span class="rnm">${x.display_name}</span>
+          <span class="rbar"><b style="width:${Math.round(x.amount/Math.max(top,1)*100)}%"></b></span>
+          <span class="ramt">${x.amount}</span>
+        </div>`).join("")}</div>`
+      : `<div class="goalof">No ${label} logged yet</div>`}
+      ${c.reward ? `<div class="rewardbox">
+          <span class="rewardlbl">${c.ended ? "Winner gets" : "Winner gets"}</span>
+          <span class="rewardtxt">${c.reward}</span>
+        </div>` : ""}`;
 
-  $("chalBody").innerHTML = `
-    <div class="goalnum ${hit?"hit":""}">${done.toLocaleString()}
-      <span class="goalslash">/ ${target.toLocaleString()}</span></div>
-    <div class="goalof">${label}</div>
-    <div class="goalbar"><b class="${hit?"hit":""}" style="width:${pct}%"></b></div>
-    ${c.reward ? `<div class="rewardbox">
-        <span class="rewardlbl">${hit ? "Unlocked" : "If we hit it"}</span>
-        <span class="rewardtxt">${c.reward}</span>
-      </div>` : ""}
-    ${contributors.length ? `<div class="contrib">${contributors.map(x=>`
-        <span class="cchip"><b>${x.display_name}</b> ${x.amount}</span>`).join("")}</div>` : ""}`;
+  } else {
+    // A team target: one number and a bar.
+    const target = c.target || 1;
+    const done   = c.progress || 0;
+    const pct    = Math.min(100, Math.round(done / target * 100));
+    const hit    = done >= target;
 
-  if(c.ends_at && !hit){
+    $("chalEyebrow").textContent = hit ? "Target reached" : "Challenge";
+    $("chalTitle").textContent   = hit ? "We did it" : c.title;
+    $("chalSub").textContent     = hit ? "" : (c.subtitle || "");
+
+    $("chalBody").innerHTML = `
+      <div class="goalnum ${hit?"hit":""}">${done.toLocaleString()}
+        <span class="goalslash">/ ${target.toLocaleString()}</span></div>
+      <div class="goalof">${label}</div>
+      <div class="goalbar"><b class="${hit?"hit":""}" style="width:${pct}%"></b></div>
+      ${c.reward ? `<div class="rewardbox">
+          <span class="rewardlbl">${hit ? "Unlocked" : "If we hit it"}</span>
+          <span class="rewardtxt">${c.reward}</span>
+        </div>` : ""}
+      ${board.length ? `<div class="contrib">${board.slice(0,6).map(x=>`
+          <span class="cchip"><b>${x.display_name}</b> ${x.amount}</span>`).join("")}</div>` : ""}`;
+  }
+
+  if(c.ends_at && !c.ended){
     const left = Math.max(0, Math.floor((new Date(c.ends_at) - new Date())/1000));
     const m = Math.floor(left/60), sec = left % 60;
-    $("chalClock").textContent = left > 0 ? `${m}:${String(sec).padStart(2,"0")} left`
-                                          : "Time";
+    $("chalClock").textContent = left > 0 ? `${m}:${String(sec).padStart(2,"0")} left` : "Time";
   } else $("chalClock").textContent = "";
 }
 
@@ -1656,20 +1699,40 @@ function applyChallenge(){
   const label = { calls:"outbound calls", convos:"conversations", letters:"letters",
                   outcomes:"outcomes", points:"points" }[c.metric] || c.metric;
 
+  const isRace = c.kind === "race" || !c.target;
+  const mins   = Math.round((c.seconds_left||3600)/60);
+
   // announce it once, when it starts
-  if(CHAL_ANNOUNCED !== c.id){
+  if(CHAL_ANNOUNCED !== c.id && !c.ended){
     CHAL_ANNOUNCED = c.id;
     fanfare();
     setTimeout(()=>say(
-      `New challenge. ${c.target} ${label} in the next ` +
-      `${Math.round((c.seconds_left||3600)/60)} minutes. ` +
-      (c.reward ? `If we hit it, ${c.reward}.` : "")
+      isRace
+        ? `New race. Most ${label} in the next ${mins} minutes wins. ` +
+          (c.reward ? `The winner gets ${c.reward}.` : "")
+        : `New challenge. ${c.target} ${label} in the next ${mins} minutes. ` +
+          (c.reward ? `If we hit it, ${c.reward}.` : "")
     ), 1200);
     throwConfetti(4000);
   }
 
-  // and once more, louder, if the target is reached
-  const hit = (c.progress || 0) >= (c.target || 1);
+  // a race ending is its own moment
+  if(isRace && c.ended && CHAL_HIT_SHOWN !== c.id){
+    CHAL_HIT_SHOWN = c.id;
+    const win = (MODEL.contributors || [])[0];
+    fanfare();
+    setTimeout(fanfare, 700);
+    throwConfetti(9000);
+    setTimeout(()=>say(win
+      ? `${win.display_name.replace(/\s+[A-Z]$/,"")} takes it with ${win.amount} ${label}. ` +
+        (c.reward ? c.reward + "." : "")
+      : "Time. Nobody logged one."
+    ), 1400);
+    return;
+  }
+
+  // and once more, louder, if a team target is reached
+  const hit = !isRace && (c.progress || 0) >= (c.target || 1);
   if(hit && CHAL_HIT_SHOWN !== c.id){
     CHAL_HIT_SHOWN = c.id;
     fanfare();
@@ -1727,7 +1790,7 @@ setInterval(()=>{
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v23";
+const BUILD = "v24";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
