@@ -273,7 +273,7 @@ body{
   box-shadow:var(--shadow);border-radius:3px;
   display:grid;
   grid-template-columns:4.2vw minmax(0,1fr) minmax(0,1.25fr) 6.6vw 6.6vw 5vw;
-  align-items:center;gap:calc(var(--pad)*.6);
+  align-items:center;gap:calc(var(--pad)*.6);overflow:hidden;
   background:var(--ink-2);
   border-left:4px solid var(--ink-3);
   padding:0 calc(var(--pad)*.7);
@@ -291,7 +291,8 @@ body{
 .board.dense{gap:.35vh}
 .board.dense .row{padding:0 calc(var(--pad)*.5)}
 .board.dense .rank{font-size:clamp(16px,1.9vw,38px)}
-.board.dense .who .nm{font-size:clamp(13px,1.35vw,28px)}
+.board.dense .who{display:flex;flex-direction:column;justify-content:center}
+.who .nm{font-size:clamp(13px,1.35vw,28px)}
 .board.dense .who .tok{font-size:clamp(8px,.55vw,12px)}
 .board.dense .pts{font-size:clamp(19px,2.2vw,46px)}
 .board.dense .track .rail{height:clamp(4px,.45vh,8px)}
@@ -306,7 +307,8 @@ body{
 .board.denser .tracks{display:none}
 .board.denser .row{grid-template-columns:4.2vw minmax(0,1fr) 6.6vw 6.6vw 5vw}
 .board.denser .rank{font-size:clamp(14px,1.6vw,32px)}
-.board.denser .who .nm{font-size:clamp(12px,1.2vw,25px)}
+.board.denser .who{display:flex;flex-direction:column;justify-content:center}
+.who .nm{font-size:clamp(12px,1.2vw,25px)}
 .board.denser .pts{font-size:clamp(17px,1.9vw,40px)}
 
 .rank{
@@ -322,7 +324,8 @@ body{
 .delta.down{color:var(--postal)}
 .delta.flat{color:var(--dim);opacity:.5}
 
-.who{min-width:0}
+.who{min-width:0;overflow:hidden}
+.who{display:flex;flex-direction:column;justify-content:center}
 .who .nm{
   font-family:var(--display);font-weight:500;text-transform:uppercase;
   font-size:clamp(16px,1.75vw,38px);letter-spacing:.035em;line-height:1.06;
@@ -355,25 +358,35 @@ body{
 
 /* Spendable tokens, sized to be read from across the room. This is the
    number people are actually working toward. */
-.wallet{text-align:right}
+/* One line per cell. The labels live in the column header above, so a row
+   never has to fit two stacked lines in its share of the screen. */
+.bhead{display:grid;align-items:end;flex:0 0 auto;
+  grid-template-columns:4.2vw minmax(0,1fr) minmax(0,1.25fr) 6.6vw 6.6vw 5vw;
+  gap:calc(var(--pad)*.6);padding:0 calc(var(--pad)*.7) .35vh}
+.bhead .bh{font-family:var(--data);font-size:clamp(7px,.55vw,12px);letter-spacing:.2em;
+  text-transform:uppercase;color:var(--dim);text-align:right}
+
+.wallet{text-align:right;display:flex;align-items:baseline;justify-content:flex-end;gap:.22em;
+  min-width:0;overflow:hidden}
 .wnum{font-family:var(--display);font-weight:700;line-height:1;
-  font-size:clamp(20px,2.5vw,54px);color:var(--dial);font-variant-numeric:tabular-nums}
-.wlbl{font-family:var(--data);font-size:clamp(7px,.52vw,11px);letter-spacing:.16em;
-  text-transform:uppercase;color:var(--dim);margin-top:.25em}
+  font-size:clamp(19px,2.3vw,50px);color:var(--dial);font-variant-numeric:tabular-nums}
+.lockdot{font-size:clamp(9px,.9vw,20px);line-height:1;flex:0 0 auto}
 .wallet.held .wnum{color:var(--postal)}
-.wallet.held .wlbl{color:var(--postal)}
-.board.dense .wnum{font-size:clamp(17px,2vw,42px)}
+.board.dense .wnum{font-size:clamp(16px,1.9vw,40px)}
+.board.denser .wnum{font-size:clamp(14px,1.6vw,34px)}
+
+.score{display:flex;align-items:baseline;justify-content:flex-end;gap:.3em;
+  min-width:0;overflow:hidden}
 
 .pts{
   font-family:var(--display);font-weight:700;
-  font-size:clamp(24px,3vw,64px);text-align:right;line-height:1;
+  font-size:clamp(23px,2.9vw,62px);line-height:1;
   font-variant-numeric:tabular-nums;
 }
 .pend{
-  font-family:var(--data);font-size:clamp(8px,.6vw,13px);
-  color:var(--postal);text-align:right;letter-spacing:.08em;
+  font-family:var(--data);font-size:clamp(8px,.62vw,14px);
+  color:var(--postal);letter-spacing:.04em;flex:0 0 auto;
 }
-.pend.none{opacity:0}
 @keyframes breathe{0%,100%{opacity:.35}50%{opacity:1}}
 .pend:not(.none){animation:breathe 2.2s ease-in-out infinite}
 
@@ -688,6 +701,12 @@ body{
 
     <section class="panel" id="pBoard">
       <div class="panelhead"><h2>Standings</h2><span class="sub">Tokens to spend · points earned</span></div>
+      <div class="bhead">
+        <span></span><span></span><span></span>
+        <span class="bh">Tokens</span>
+        <span class="bh">Points</span>
+        <span></span>
+      </div>
       <div class="board" id="boardRows"></div>
     </section>
 
@@ -1016,16 +1035,16 @@ function renderBoard(people){
       <div class="rank">${p.rank}${d}</div>
       <div class="who">
         <div class="nm">${p.name}</div>
-        <div class="tok">${p.spent ? p.spent + " spent" : "&nbsp;"}</div>
+${p.spent ? `<div class="tok">${p.spent} spent</div>` : ""}
       </div>
       ${tracks(p)}
-      <div class="wallet ${p.unlocked===false?"held":""}">
-        <div class="wnum">${p.unlocked===false ? "🔒" : ""}${p.tokens}</div>
-        <div class="wlbl">${p.unlocked===false ? "on hold" : "to spend"}</div>
+      <div class="wallet ${p.unlocked===false?"held":""}"
+           title="${p.unlocked===false ? "On hold until today's floor is cleared" : "Ready to spend"}">
+        ${p.unlocked===false ? '<span class="lockdot">&#128274;</span>' : ""}<span class="wnum">${p.tokens}</span>
       </div>
-      <div>
-        <div class="pts" data-count="${p.pts}">${p.pts}</div>
-        <div class="pend ${p.pending?"":"none"}">+${p.pending} pending</div>
+      <div class="score">
+        <span class="pts" data-count="${p.pts}">${p.pts}</span>${
+          p.pending?`<span class="pend">+${p.pending}</span>`:""}
       </div>
       ${stamp}
     </div>`;
@@ -1040,10 +1059,10 @@ function renderBoard(people){
         <div class="tok">Competing, not claiming</div>
       </div>
       ${tracks(p)}
-      <div class="wallet"><div class="wnum">—</div><div class="wlbl">no prizes</div></div>
-      <div>
-        <div class="pts" data-count="${p.pts}">${p.pts}</div>
-        <div class="pend ${p.pending?"":"none"}">+${p.pending} pending</div>
+      <div class="wallet"><span class="wnum">—</span></div>
+      <div class="score">
+        <span class="pts" data-count="${p.pts}">${p.pts}</span>${
+          p.pending?`<span class="pend">+${p.pending}</span>`:""}
       </div>
       <div class="stamp empty"><span class="sm">NO<br>PRIZES</span></div>
     </div>`).join("");
@@ -1830,7 +1849,7 @@ setInterval(()=>{
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v27";
+const BUILD = "v28";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
