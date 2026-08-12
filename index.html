@@ -290,10 +290,10 @@ body{
 /* 11-14 rows: shrink type and chrome so nobody falls off the screen. */
 .board.dense{gap:.35vh}
 .board.dense .row{padding:0 calc(var(--pad)*.5)}
-.board.dense .rank{font-size:clamp(16px,1.9vw,38px)}
+.board.dense .rank{font-size:clamp(13px,2.5vh,38px)}
 .board.dense .who{display:flex;align-items:center;min-width:0;overflow:hidden}
 .who .nm{font-size:clamp(13px,1.35vw,28px)}
-.board.dense .board.dense .pts{font-size:clamp(19px,2.2vw,46px)}
+.board.dense .board.dense .pts{font-size:clamp(15px,2.7vh,40px)}
 .board.dense .track .rail{height:clamp(4px,.45vh,8px)}
 .board.dense .tracks{gap:.2vh}
 .board.dense .track .lbl{font-size:clamp(6px,.44vw,10px)}
@@ -305,14 +305,14 @@ body{
 /* 15+: drop the track bars entirely — rank, name and points still read. */
 .board.denser .tracks{display:none}
 .board.denser .row{grid-template-columns:4.2vw minmax(0,1fr) 6.6vw 6.6vw 5vw}
-.board.denser .rank{font-size:clamp(14px,1.6vw,32px)}
+.board.denser .rank{font-size:clamp(12px,2.2vh,32px)}
 .board.denser .who{display:flex;align-items:center;min-width:0;overflow:hidden}
 .who .nm{font-size:clamp(12px,1.2vw,25px)}
-.board.denser .pts{font-size:clamp(17px,1.9vw,40px)}
+.board.denser .pts{font-size:clamp(14px,2.4vh,36px)}
 
 .rank{
   font-family:var(--display);font-weight:700;
-  font-size:clamp(20px,2.5vw,52px);color:var(--dim);
+  font-size:clamp(15px,2.9vh,46px);color:var(--dim);line-height:1;
   display:flex;align-items:center;gap:.22em;
 }
 .row.top .rank{color:var(--postal)}
@@ -327,7 +327,7 @@ body{
 .who{display:flex;align-items:center;min-width:0;overflow:hidden}
 .who .nm{
   font-family:var(--display);font-weight:500;text-transform:uppercase;
-  font-size:clamp(16px,1.75vw,38px);letter-spacing:.035em;line-height:1.06;
+  font-size:clamp(13px,2.4vh,34px);letter-spacing:.035em;line-height:1.1;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 
@@ -335,13 +335,13 @@ body{
 .tracks{display:flex;flex-direction:column;gap:.32vh;min-width:0}
 .track{display:grid;grid-template-columns:3.6vw 1fr 3.2vw;align-items:center;gap:.5vw}
 .track .lbl{
-  font-family:var(--data);font-size:clamp(7px,.52vw,11px);
+  font-family:var(--data);font-size:clamp(6px,.95vh,11px);
   letter-spacing:.14em;color:var(--dim);text-transform:uppercase;
 }
-.track .rail{height:clamp(5px,.62vh,10px);background:var(--rail);overflow:hidden;border-radius:99px}
+.track .rail{height:clamp(4px,.55vh,9px);background:var(--rail);overflow:hidden;border-radius:99px}
 .track .fill{height:100%;width:0;transition:width .8s cubic-bezier(.2,.8,.25,1)}
 .track .num{
-  font-family:var(--data);font-size:clamp(8px,.6vw,13px);
+  font-family:var(--data);font-size:clamp(7px,1vh,12px);
   color:var(--paper);text-align:right;
 }
 .fill.letters{background:var(--manila)}
@@ -359,25 +359,25 @@ body{
 .bhead .bh{font-family:var(--data);font-size:clamp(7px,.55vw,12px);letter-spacing:.2em;
   text-transform:uppercase;color:var(--dim);text-align:right}
 
-.wallet{text-align:right;display:flex;align-items:baseline;justify-content:flex-end;gap:.22em;
+.wallet{text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:.22em;
   min-width:0;overflow:hidden}
-.wnum{font-family:var(--display);font-weight:700;line-height:1;
-  font-size:clamp(19px,2.3vw,50px);color:var(--dial);font-variant-numeric:tabular-nums}
-.lockdot{font-size:clamp(9px,.9vw,20px);line-height:1;flex:0 0 auto}
+.wnum{font-family:var(--display);font-weight:700;line-height:1.1;
+  font-size:clamp(15px,2.8vh,42px);color:var(--dial);font-variant-numeric:tabular-nums}
+.lockdot{font-size:clamp(8px,1.4vh,18px);line-height:1;flex:0 0 auto}
 .wallet.held .wnum{color:var(--postal)}
-.board.dense .wnum{font-size:clamp(16px,1.9vw,40px)}
-.board.denser .wnum{font-size:clamp(14px,1.6vw,34px)}
+.board.dense .wnum{font-size:clamp(14px,2.4vh,36px)}
+.board.denser .wnum{font-size:clamp(13px,2.1vh,32px)}
 
-.score{display:flex;align-items:baseline;justify-content:flex-end;gap:.3em;
+.score{display:flex;align-items:center;justify-content:flex-end;gap:.3em;
   min-width:0;overflow:hidden}
 
 .pts{
   font-family:var(--display);font-weight:700;
-  font-size:clamp(23px,2.9vw,62px);line-height:1;
+  font-size:clamp(17px,3.2vh,48px);line-height:1.1;
   font-variant-numeric:tabular-nums;
 }
 .pend{
-  font-family:var(--data);font-size:clamp(8px,.62vw,14px);
+  font-family:var(--data);font-size:clamp(7px,1.1vh,13px);
   color:var(--postal);letter-spacing:.04em;flex:0 0 auto;
 }
 @keyframes breathe{0%,100%{opacity:.35}50%{opacity:1}}
@@ -1835,7 +1835,7 @@ setInterval(()=>{
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v29";
+const BUILD = "v30";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
