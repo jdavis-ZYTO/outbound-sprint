@@ -196,6 +196,26 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
 .stat b{font-family:var(--display);font-weight:700;font-size:29px;line-height:1;display:block;
   font-variant-numeric:tabular-nums}
 .stat span{font-family:var(--data);font-size:9px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+.lock{background:#FFF4F3;border-left:4px solid var(--postal);border-radius:4px;
+  padding:14px;box-shadow:var(--shadow)}
+.lock.open{background:#EFFAF7;border-left-color:var(--dial)}
+.lockhd{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:700;
+  text-transform:uppercase;font-size:16px;letter-spacing:.03em;color:var(--postal)}
+.lock.open .lockhd{color:var(--dial)}
+.lockicon{font-size:15px}
+.locksub{font-size:12px;color:var(--dim);margin-top:3px}
+.lockrow{display:flex;gap:8px;margin-top:12px}
+.lockitem{flex:1;background:#fff;border-radius:4px;padding:9px 8px;text-align:center;
+  border:1px solid var(--ink-3)}
+.lockitem.done{border-color:var(--dial);background:#EFFAF7}
+.lockitem b{display:block;font-family:var(--display);font-weight:700;font-size:19px;
+  color:var(--paper);line-height:1}
+.lockitem b span{font-size:.6em;color:var(--dim)}
+.lockitem i{display:block;font-style:normal;font-family:var(--data);font-size:8px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-top:4px}
+.lockitem em{display:block;font-style:normal;font-size:10px;color:var(--postal);margin-top:3px}
+.lockitem.done em{color:var(--dial)}
+.stat.held b{color:var(--postal)}
 .trk{background:var(--ink-2);padding:12px 14px;box-shadow:var(--shadow);border-radius:4px}
 .trkrow{display:grid;grid-template-columns:64px 1fr 36px;gap:10px;align-items:center;margin-bottom:9px}
 .trkrow:last-child{margin-bottom:0}
@@ -414,7 +434,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v27</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v28</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -892,12 +912,38 @@ function renderMe(){
   const share = team ? Math.round(p.points/team*100) : 0;
   const pacer = p.competing===false;
 
+  // The daily floor. Tokens keep accruing either way; this is only about
+  // whether they can be spent today.
+  const held = p.unlocked === false;
+  const need = (have, min) => Math.max(0, (min||0) - (have||0));
+  const lockPanel = (p.min_calls == null) ? "" : (held ? `
+    <div class="lock">
+      <div class="lockhd"><span class="lockicon">🔒</span>${p.tokens} tokens on hold</div>
+      <div class="locksub">They're yours. Clear today's floor to spend them.</div>
+      <div class="lockrow">
+        ${[["Calls", p.calls_today, p.min_calls],
+           ["Letters", p.letters_today, p.min_letters],
+           ["Conversations", p.convos_today, p.min_convos]]
+          .map(([lbl,have,min])=>`
+            <div class="lockitem ${have>=min?"done":""}">
+              <b>${have||0}<span>/${min}</span></b>
+              <i>${lbl}</i>
+              ${have>=min ? `<em>done</em>` : `<em>${need(have,min)} to go</em>`}
+            </div>`).join("")}
+      </div>
+    </div>` : `
+    <div class="lock open">
+      <div class="lockhd"><span class="lockicon">✓</span>Unlocked for today</div>
+      <div class="locksub">${p.tokens} tokens ready to spend</div>
+    </div>`);
+
   $("vMe").innerHTML = `
     <div class="stats">
       <div class="stat"><b>${pacer?"◆":p.rank}</b><span>${pacer?"Pace":"Rank"}</span></div>
       <div class="stat"><b>${p.points}</b><span>Points</span></div>
-      <div class="stat"><b>${pacer?share+"%":p.tokens}</b><span>${pacer?"Of team":"Tokens"}</span></div>
+      <div class="stat ${held?"held":""}"><b>${pacer?share+"%":p.tokens}</b><span>${pacer?"Of team":(held?"On hold":"Tokens")}</span></div>
     </div>
+    ${pacer ? "" : lockPanel}
     <div class="trk">
       ${trk("letters","Letters",p.letters,max,"f-letters")}
       ${trk("calls","Calls",p.calls,max*4,"f-calls")}
@@ -911,6 +957,7 @@ function renderMe(){
       <div class="trkrow" style="grid-template-columns:1fr">
         <span class="l">${
           pacer ? "In it with the team, out of the prize running"
+          : held ? "Prizes stay locked until you clear today's floor"
           : can.length ? `You can claim ${can.length} prize${can.length>1?"s":""} now`
           : next ? `${next.cost-p.tokens} points to ${next.name}`
           : "Nothing left to claim"}</span>

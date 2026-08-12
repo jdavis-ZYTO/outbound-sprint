@@ -272,7 +272,7 @@ body{
 .row{
   box-shadow:var(--shadow);border-radius:3px;
   display:grid;
-  grid-template-columns:4.2vw minmax(0,1.1fr) minmax(0,1.5fr) 7vw 6vw;
+  grid-template-columns:4.2vw minmax(0,1fr) minmax(0,1.25fr) 6.6vw 6.6vw 5vw;
   align-items:center;gap:calc(var(--pad)*.6);
   background:var(--ink-2);
   border-left:4px solid var(--ink-3);
@@ -282,9 +282,6 @@ body{
 .row.top{border-left-color:var(--postal);background:#FFF4F3;position:relative;overflow:hidden}
 .row.second{border-left-color:var(--manila)}
 .row.third{border-left-color:var(--dial)}
-.hcap{font-family:var(--data);font-size:.42em;letter-spacing:.06em;color:var(--postal);
-  border:1px solid var(--postal);border-radius:3px;padding:.1em .3em;margin-left:.5em;
-  vertical-align:middle;white-space:nowrap}
 .row.pace{border-left-color:var(--manila);background:#FFFBF4;
   border-top:2px dashed var(--ink-3);flex:0 0 auto;padding-top:.4vh;padding-bottom:.4vh}
 .row.pace .rank{font-family:var(--data);font-size:clamp(8px,.62vw,14px);
@@ -307,7 +304,7 @@ body{
 
 /* 15+: drop the track bars entirely — rank, name and points still read. */
 .board.denser .tracks{display:none}
-.board.denser .row{grid-template-columns:4.2vw minmax(0,1fr) 7vw 5vw}
+.board.denser .row{grid-template-columns:4.2vw minmax(0,1fr) 6.6vw 6.6vw 5vw}
 .board.denser .rank{font-size:clamp(14px,1.6vw,32px)}
 .board.denser .who .nm{font-size:clamp(12px,1.2vw,25px)}
 .board.denser .pts{font-size:clamp(17px,1.9vw,40px)}
@@ -336,6 +333,7 @@ body{
   color:var(--manila);letter-spacing:.1em;
 }
 .who .tok .spent{color:var(--dim)}
+.who .tok.held{color:var(--postal)}
 
 /* four independent tracks, each its own rail */
 .tracks{display:flex;flex-direction:column;gap:.32vh;min-width:0}
@@ -354,6 +352,17 @@ body{
 .fill.calls{background:var(--dial)}
 .fill.convos{background:var(--violet)}
 .fill.wins{background:var(--postal)}
+
+/* Spendable tokens, sized to be read from across the room. This is the
+   number people are actually working toward. */
+.wallet{text-align:right}
+.wnum{font-family:var(--display);font-weight:700;line-height:1;
+  font-size:clamp(20px,2.5vw,54px);color:var(--dial);font-variant-numeric:tabular-nums}
+.wlbl{font-family:var(--data);font-size:clamp(7px,.52vw,11px);letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dim);margin-top:.25em}
+.wallet.held .wnum{color:var(--postal)}
+.wallet.held .wlbl{color:var(--postal)}
+.board.dense .wnum{font-size:clamp(17px,2vw,42px)}
 
 .pts{
   font-family:var(--display);font-weight:700;
@@ -678,7 +687,7 @@ body{
 
 
     <section class="panel" id="pBoard">
-      <div class="panelhead"><h2>Standings</h2><span class="sub">Points · tokens · verified outcomes</span></div>
+      <div class="panelhead"><h2>Standings</h2><span class="sub">Tokens to spend · points earned</span></div>
       <div class="board" id="boardRows"></div>
     </section>
 
@@ -688,7 +697,7 @@ body{
     </section>
 
     <section class="panel" id="pToday">
-      <div class="panelhead"><h2>Today</h2><span class="sub">Everyone's day so far · resets at midnight</span></div>
+      <div class="panelhead"><h2>Today</h2><span class="sub" id="minsSub">Everyone's day so far · resets at midnight</span></div>
       <div class="todaygrid">
         <div class="moverlist" id="moverList"></div>
         <div class="sidecol">
@@ -828,7 +837,7 @@ let rows = [];
 let lastRank = {};
 
 // Every source normalizes into this shape before anything renders.
-let MODEL = { people:[], feed:[], shelf:[], daily:[], winners:[], hourly:[], challenge:null, contributors:[] };
+let MODEL = { people:[], feed:[], shelf:[], daily:[], winners:[], hourly:[], challenge:null, contributors:[], mins:[] };
 
 function shelfFromConfig(){
   return CONFIG.shelf.map(i=>({ name:i.name, cost:i.cost, sold:!!i.sold }));
@@ -1006,10 +1015,14 @@ function renderBoard(people){
     <div class="row ${cls} ${p.delta?"moved":""}">
       <div class="rank">${p.rank}${d}</div>
       <div class="who">
-        <div class="nm">${p.name}${p.mult!==1?`<span class="hcap">×${p.mult}</span>`:""}</div>
-        <div class="tok">${p.tokens} tokens${spent}</div>
+        <div class="nm">${p.name}</div>
+        <div class="tok">${p.spent ? p.spent + " spent" : "&nbsp;"}</div>
       </div>
       ${tracks(p)}
+      <div class="wallet ${p.unlocked===false?"held":""}">
+        <div class="wnum">${p.unlocked===false ? "🔒" : ""}${p.tokens}</div>
+        <div class="wlbl">${p.unlocked===false ? "on hold" : "to spend"}</div>
+      </div>
       <div>
         <div class="pts" data-count="${p.pts}">${p.pts}</div>
         <div class="pend ${p.pending?"":"none"}">+${p.pending} pending</div>
@@ -1027,6 +1040,7 @@ function renderBoard(people){
         <div class="tok">Competing, not claiming</div>
       </div>
       ${tracks(p)}
+      <div class="wallet"><div class="wnum">—</div><div class="wlbl">no prizes</div></div>
       <div>
         <div class="pts" data-count="${p.pts}">${p.pts}</div>
         <div class="pend ${p.pending?"":"none"}">+${p.pending} pending</div>
@@ -1064,25 +1078,51 @@ function renderToday(people, feed){
   const byName = {};
   (MODEL.daily||[]).filter(d=>d.day===today).forEach(d=>byName[d.display_name]=d);
 
+  const byPerson = {};
+  people.forEach(p=>byPerson[p.name]=p);
+  const M = people.find(p=>p.minCalls != null);
+
   const rows = people
     .filter(p=>p.competing!==false)
     .map(p=>{
       const d = byName[p.name];
-      return { name:p.name, mult:p.mult===undefined?1:p.mult,
-               pts: d ? d.points : (p.today||0),
-               calls: d?d.calls:0, letters: d?d.letters:0, convos: d?d.convos:0 };
+      const m = p.minCalls == null ? null : {
+        calls: p.callsToday||0, letters: p.lettersToday||0, convos: p.convosToday||0,
+        calls_ok: (p.callsToday||0) >= p.minCalls,
+        letters_ok: (p.lettersToday||0) >= p.minLetters,
+        convos_ok: (p.convosToday||0) >= p.minConvos,
+        all_three: p.unlocked === true,
+        min_calls: p.minCalls, min_letters: p.minLetters, min_convos: p.minConvos };
+      return { name:p.name, pts: d ? d.points : (p.today||0),
+               calls: d?d.calls:0, letters: d?d.letters:0, convos: d?d.convos:0,
+               m };
     })
-    .sort((a,b)=> b.pts-a.pts || a.name.localeCompare(b.name))
-    .slice(0,8);
+    .sort((a,b)=> b.pts-a.pts || a.name.localeCompare(b.name));
 
   const top = rows.length ? rows[0].pts : 0;
-  $("moverList").innerHTML = rows.map((r,i)=>`
+  const cleared = rows.filter(r=>r.m && r.m.all_three).length;
+
+  // The floor, stated in the subtitle so the marks explain themselves.
+  $("minsSub").textContent = M
+    ? `Tokens unlock at ${M.minCalls} calls · ${M.minLetters} letters · ${M.minConvos} conversations` +
+      `  ·  ${cleared} of ${rows.length} unlocked`
+    : "Everyone's day so far · resets at midnight";
+
+  const mark = (ok, label, have, need) =>
+    `<span class="mk ${ok?"on":""}" title="${have} of ${need}">${label}</span>`;
+
+  $("moverList").innerHTML = rows.slice(0,10).map((r,i)=>`
     <div class="mover ${r.pts>0 && r.pts===top ? "lead" : ""} ${r.pts===0?"zero":""}">
       <span class="mrk">${r.pts>0 ? (i+1) : "·"}</span>
-      <span>
-        <span class="mn">${r.name}${r.mult!==1?`<span class="hcap">×${r.mult}</span>`:""}</span>
+      <span style="min-width:0">
+        <span class="mn">${r.name}</span>
         <span class="msub">${r.convos} convo${r.convos===1?"":"s"} · ${r.letters} letter${r.letters===1?"":"s"} · ${r.calls} call${r.calls===1?"":"s"}</span>
       </span>
+      <span class="marks">${r.m ? [
+        mark(r.m.calls_ok,   "C", r.m.calls,   r.m.min_calls),
+        mark(r.m.letters_ok, "L", r.m.letters, r.m.min_letters),
+        mark(r.m.convos_ok,  "V", r.m.convos,  r.m.min_convos)
+      ].join("") : ""}</span>
       <span class="mp">${r.pts>0?r.pts:"—"}</span>
     </div>`).join("") || `<div class="mover"><span class="mn">Nothing logged yet today</span></div>`;
 
@@ -1790,7 +1830,7 @@ setInterval(()=>{
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v24";
+const BUILD = "v27";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
@@ -1849,7 +1889,7 @@ async function loadSupabase(){
   // Fetched independently: if the prize list or the activity feed fails, the
   // standings should still render. Bundling them meant one bad query blanked
   // the whole screen.
-  const [sRes, fRes, pRes, dRes, wRes, hRes, aRes, cRes, kRes] = await Promise.allSettled([
+  const [sRes, fRes, pRes, dRes, wRes, hRes, aRes, cRes, kRes, mRes] = await Promise.allSettled([
     sbGet("standings?select=*"),
     sbGet("activity_feed?select=*&limit=30"),
     sbGet("prizes?select=*&order=token_cost.desc,sort_order.asc"),
@@ -1858,7 +1898,8 @@ async function loadSupabase(){
     sbGet("hourly_movers?select=*&limit=12"),
     sbGet("actions?select=name,points"),
     sbGet("challenge_progress?select=*"),
-    sbGet("challenge_contributors?select=*")
+    sbGet("challenge_contributors?select=*"),
+    sbGet("daily_minimums_today?select=*")
   ]);
 
   if(sRes.status === "rejected"){
@@ -1900,8 +1941,12 @@ async function loadSupabase(){
     tokens: s.tokens,
     rank: s.rank,
     competing: s.competing !== false,
-    mult: s.score_multiplier === undefined ? 1 : Number(s.score_multiplier),
     spent: s.tokens_spent || 0,
+    // the daily-floor lock
+    unlocked: s.unlocked,
+    spendable: s.spendable != null ? s.spendable : s.tokens,
+    callsToday: s.calls_today, lettersToday: s.letters_today, convosToday: s.convos_today,
+    minCalls: s.min_calls, minLetters: s.min_letters, minConvos: s.min_convos,
     delta: lastRank[s.display_name]===undefined ? 0 : lastRank[s.display_name]-s.rank
   }));
 
@@ -1920,7 +1965,8 @@ async function loadSupabase(){
                             by:p.claimed_by || null })),
     daily, winners, hourly,
     challenge: (cRes.status === "fulfilled" && cRes.value && cRes.value[0]) || null,
-    contributors: (kRes.status === "fulfilled" && kRes.value) || []
+    contributors: (kRes.status === "fulfilled" && kRes.value) || [],
+    mins: (mRes.status === "fulfilled" && mRes.value) || []
   };
 
   const partial = [fRes,pRes,dRes,wRes,hRes,aRes].some(r=>r.status==="rejected") ? " · some panels unavailable" : "";
@@ -1932,7 +1978,7 @@ async function loadSheet(){
   const res = await fetch(CONFIG.csvUrl + (CONFIG.csvUrl.includes("?")?"&":"?") + "cb=" + Date.now());
   if(!res.ok) throw new Error("HTTP "+res.status);
   rows = normalize(parseCSV(await res.text()));
-  MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig(), daily: [], winners: [], hourly: [], challenge: null, contributors: [] };
+  MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig(), daily: [], winners: [], hourly: [], challenge: null, contributors: [], mins: [] };
   setStatus(`Live · <b>${rows.length}</b> entries · updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}`);
   draw();
 }
@@ -1942,7 +1988,7 @@ async function load(){
     if(CONFIG.source==="supabase" && CONFIG.supabase.url){ await loadSupabase(); LAST_ERROR=null; return; }
     if(CONFIG.source==="sheet" && CONFIG.csvUrl){ await loadSheet(); return; }
     if(!rows.length) rows = demoRows();
-    MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig(), daily: [], winners: [], hourly: [], challenge: null, contributors: [] };
+    MODEL = { people: tally(), feed: feedFromRows(), shelf: shelfFromConfig(), daily: [], winners: [], hourly: [], challenge: null, contributors: [], mins: [] };
     setStatus('<b>Demo data</b> — set source and credentials in CONFIG to go live', true);
     draw();
   }catch(err){
