@@ -286,6 +286,9 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
   letter-spacing:.12em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
 .arow .abtn:active{background:var(--ink-3);color:var(--paper)}
 .arow .abtn.go{border-color:var(--dial);color:var(--dial)}
+.pactions{display:flex;gap:6px;margin-left:auto;flex:0 0 auto}
+.abtn.deny{border-color:var(--postal);color:var(--postal)}
+.abtn.deny:active{background:var(--postal);color:#fff}
 .modes{display:flex;gap:8px;margin:12px 0 4px}
 .modebtn{flex:1;padding:11px 10px;border:1.5px solid var(--ink-3);border-radius:4px;
   background:#fff;text-align:left}
@@ -434,7 +437,7 @@ input[type=text]:focus{outline:2px solid var(--manila);outline-offset:-2px}
     <section class="view" id="vAdmin"></section>
   </main>
 
-  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v28</div></div>
+  <div class="foot"><button id="notme">Not you? Switch name</button><div class="ver">v29</div></div>
 </div>
 
 <div class="gate" id="gate" hidden>
@@ -1400,7 +1403,11 @@ function renderAdmin(){
         <div class="an">${e.who}</div>
         <span class="sm">${e.action} · ${e.account_name||"no account"} · ${new Date(e.logged_at).toLocaleDateString([], {month:"numeric",day:"numeric"})}</span>
       </div>
-      <button class="abtn go" data-verify="${e.entry_id}" style="margin-left:auto">Confirm</button>
+      <span class="pactions">
+        <button class="abtn deny" data-deny="${e.entry_id}"
+                data-who="${e.who}" data-what="${e.action}">Deny</button>
+        <button class="abtn go" data-verify="${e.entry_id}">Confirm</button>
+      </span>
     </div>`).join("")
     : `<div class="sm" style="padding:8px 0">Nothing waiting. All outcomes confirmed.</div>`;
 
@@ -1458,7 +1465,7 @@ function renderAdmin(){
   $("vAdmin").innerHTML = challengePanel + `
     <div class="acard">
       <h4>Pending outcomes${ADMIN.pending.length?` (${ADMIN.pending.length})`:""}</h4>
-      <div class="hint">Check the account against Salesforce, then confirm</div>
+      <div class="hint">Check the account, then confirm it or deny a mis-log</div>
       ${pending}
     </div>
     <div class="acard" style="border-left-color:var(--dial)">
@@ -1481,6 +1488,19 @@ function renderAdmin(){
       <div id="resetOut"></div>
     </div>
     <div class="foot"><button id="adminLock">Lock admin</button></div>`;
+
+  // Deny removes the outcome entry. The conversation logged alongside it
+  // stays, because that did happen — they just picked the wrong outcome.
+  $("vAdmin").querySelectorAll("[data-deny]").forEach(b=>b.onclick=async()=>{
+    const who = b.dataset.who, what = b.dataset.what;
+    if(!confirm(`Remove ${who}'s ${what}?\n\nThe conversation they logged stays. Only the outcome goes.`)) return;
+    b.disabled=true; b.textContent="…";
+    try{
+      await adminCall("admin_delete_entry", { p_admin_pin: ADMIN_PIN, p_entry_id: b.dataset.deny });
+      toast("Denied");
+      await adminLoad(); renderAdmin(); await refresh();
+    }catch(err){ b.disabled=false; b.textContent="Deny"; toast("Couldn't remove it"); }
+  });
 
   $("vAdmin").querySelectorAll("[data-verify]").forEach(b=>b.onclick=async()=>{
     b.disabled=true; b.textContent="…";
