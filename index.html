@@ -272,7 +272,7 @@ body{
 .row{
   box-shadow:var(--shadow);border-radius:3px;
   display:grid;
-  grid-template-columns:4.2vw minmax(0,1fr) minmax(0,1.25fr) 6.6vw 6.6vw 5vw;
+  grid-template-columns:4.2vw minmax(0,1fr) minmax(0,1.1fr) 7.2vw 6.4vw 6.4vw 4.6vw;
   align-items:center;gap:calc(var(--pad)*.6);overflow:hidden;
   background:var(--ink-2);
   border-left:4px solid var(--ink-3);
@@ -304,7 +304,7 @@ body{
 
 /* 15+: drop the track bars entirely — rank, name and points still read. */
 .board.denser .tracks{display:none}
-.board.denser .row{grid-template-columns:4.2vw minmax(0,1fr) 6.6vw 6.6vw 5vw}
+.board.denser .row{grid-template-columns:4.2vw minmax(0,1fr) 7.2vw 6.4vw 6.4vw 4.6vw}
 .board.denser .rank{font-size:clamp(12px,2.2vh,32px)}
 .board.denser .who{display:flex;align-items:center;min-width:0;overflow:hidden}
 .who .nm{font-size:clamp(12px,1.2vw,25px)}
@@ -354,10 +354,25 @@ body{
 /* One line per cell. The labels live in the column header above, so a row
    never has to fit two stacked lines in its share of the screen. */
 .bhead{display:grid;align-items:end;flex:0 0 auto;
-  grid-template-columns:4.2vw minmax(0,1fr) minmax(0,1.25fr) 6.6vw 6.6vw 5vw;
+  grid-template-columns:4.2vw minmax(0,1fr) minmax(0,1.1fr) 7.2vw 6.4vw 6.4vw 4.6vw;
   gap:calc(var(--pad)*.6);padding:0 calc(var(--pad)*.7) .35vh}
 .bhead .bh{font-family:var(--data);font-size:clamp(7px,.55vw,12px);letter-spacing:.2em;
   text-transform:uppercase;color:var(--dim);text-align:right}
+
+/* Today's three: calls, letters, conversations. Hollow until cleared.
+   On the standings so it sits next to the number people are chasing. */
+.dmarks{display:flex;gap:.28em;justify-content:center;flex:0 0 auto}
+.dm{display:inline-flex;align-items:center;justify-content:center;
+  width:clamp(15px,2.4vh,34px);aspect-ratio:1;border-radius:50%;
+  border:2px solid var(--ink-3);color:var(--ink-3);
+  font-family:var(--display);font-weight:700;line-height:1;
+  font-size:clamp(8px,1.3vh,17px)}
+.dm.on{background:var(--dial);border-color:var(--dial);color:#fff}
+.row.top .dm{border-color:#E9BDB8}
+.row.top .dm.on{background:var(--dial);border-color:var(--dial)}
+.bhead .bh.mid{text-align:center}
+.board.dense .dm{width:clamp(13px,2vh,28px);font-size:clamp(7px,1.1vh,14px);border-width:2px}
+.board.denser .dm{width:clamp(12px,1.8vh,24px);font-size:clamp(7px,1vh,12px)}
 
 .wallet{text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:.22em;
   min-width:0;overflow:hidden}
@@ -693,9 +708,10 @@ body{
 
 
     <section class="panel" id="pBoard">
-      <div class="panelhead"><h2>Standings</h2><span class="sub">Tokens to spend · points earned</span></div>
+      <div class="panelhead"><h2>Standings</h2><span class="sub" id="boardSub">Tokens to spend · points earned</span></div>
       <div class="bhead">
         <span></span><span></span><span></span>
+        <span class="bh mid">Today</span>
         <span class="bh">Tokens</span>
         <span class="bh">Points</span>
         <span></span>
@@ -989,6 +1005,19 @@ function tally(){
 const $ = id=>document.getElementById(id);
 
 function renderBoard(people){
+  // Spell out the floor in the subtitle so the three circles explain themselves.
+  const M = people.find(p=>p.minCalls != null);
+  const sub = $("boardSub");
+  if(sub && M){
+    const done = people.filter(p=>p.competing!==false
+      && (p.callsToday||0)   >= p.minCalls
+      && (p.lettersToday||0) >= p.minLetters
+      && (p.convosToday||0)  >= p.minConvos).length;
+    const n = people.filter(p=>p.competing!==false).length;
+    sub.textContent = `Today: ${M.minCalls} calls · ${M.minLetters} letters · ${M.minConvos} conversations` +
+                      `  ·  ${done} of ${n} balanced`;
+  }
+
   const max = Math.max(1,...people.map(p=>Math.max(p.letters,p.calls/4,p.convos,p.wins*4)));
   const bar = (k,v,scale)=>`
       <div class="track">
@@ -1027,6 +1056,12 @@ function renderBoard(people){
       <div class="rank">${p.rank}${d}</div>
       <div class="who"><div class="nm">${p.name}</div></div>
       ${tracks(p)}
+      <div class="dmarks">${p.minCalls == null ? "" : [
+        ["C", (p.callsToday||0)   >= p.minCalls,   p.callsToday||0,   p.minCalls],
+        ["L", (p.lettersToday||0) >= p.minLetters, p.lettersToday||0, p.minLetters],
+        ["V", (p.convosToday||0)  >= p.minConvos,  p.convosToday||0,  p.minConvos]
+      ].map(([l,ok,have,need])=>
+        `<span class="dm ${ok?"on":""}" title="${have} of ${need}">${l}</span>`).join("")}</div>
       <div class="wallet ${p.unlocked===false?"held":""}"
            title="${p.unlocked===false ? "On hold until today's floor is cleared" : "Ready to spend"}">
         ${p.unlocked===false ? '<span class="lockdot">&#128274;</span>' : ""}<span class="wnum">${p.tokens}</span>
@@ -1045,6 +1080,7 @@ function renderBoard(people){
       <div class="rank">SETTING<br>THE PACE</div>
       <div class="who"><div class="nm">${p.name}</div></div>
       ${tracks(p)}
+      <div class="dmarks"></div>
       <div class="wallet"><span class="wnum">—</span></div>
       <div class="score">
         <span class="pts" data-count="${p.pts}">${p.pts}</span>${
@@ -1840,7 +1876,7 @@ setInterval(()=>{
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v31";
+const BUILD = "v32";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
