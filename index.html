@@ -1096,7 +1096,12 @@ function renderToday(people, feed){
         calls_ok: (p.callsToday||0) >= p.minCalls,
         letters_ok: (p.lettersToday||0) >= p.minLetters,
         convos_ok: (p.convosToday||0) >= p.minConvos,
-        all_three: p.unlocked === true,
+        // Derived from the three numbers, not from the token lock: with the
+        // hold switched off everyone reads as unlocked, which would make the
+        // "cleared it" count meaningless.
+        all_three: (p.callsToday||0) >= p.minCalls
+                && (p.lettersToday||0) >= p.minLetters
+                && (p.convosToday||0) >= p.minConvos,
         min_calls: p.minCalls, min_letters: p.minLetters, min_convos: p.minConvos };
       return { name:p.name, pts: d ? d.points : (p.today||0),
                calls: d?d.calls:0, letters: d?d.letters:0, convos: d?d.convos:0,
@@ -1835,7 +1840,7 @@ setInterval(()=>{
 /* ============================================================
    LOAD
    ============================================================ */
-const BUILD = "v30";
+const BUILD = "v31";
 let LAST_ERROR = null;
 
 function setStatus(text, warn){
